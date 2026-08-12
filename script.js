@@ -1,330 +1,191 @@
 /* =========================================================
-   CYBER ARENA — COMPLETE GAME SCRIPT
-   =========================================================
+   CYBER ARENA
+   3 DIFFICULTIES × 5 STAGES
+   AUTO FIRE + BOSS + PET + SKILL DROP
+   ========================================================= */
 
-   FEATURES
-   ---------------------------------------------------------
-   ✓ 3 độ khó: DỄ / BÌNH THƯỜNG / KHÓ
-   ✓ Mỗi độ khó có 5 màn
-   ✓ Mỗi màn có 3 Wave
-   ✓ Màn 5 có Boss
-   ✓ Boss dạng Cyber Demon 👹
-   ✓ Boss HP:
-        Easy   = 3x quái thường
-        Normal = 4x quái thường
-        Hard   = 5x quái thường
-
-   ✓ Quái càng về màn sau càng nhanh
-   ✓ Súng tự động bắn
-   ✓ Không cần nút FIRE
-   ✓ WASD / Arrow để di chuyển
-
-   ✓ Skill Drop:
-        Stage 1 = 5%
-        Stage 2 = 8%
-        Stage 3 = 11%
-        Stage 4 = 14%
-        Stage 5 = 18%
-
-   ✓ Boss luôn rơi 1 Skill
-
-   ✓ Skill:
-        💣 Bomb
-        🚀 Missile
-        ☢️ Clear
-        ⚡ Speed
-        🔥 Rapid Fire
-        🔫 Double Shot
-        🔫 Triple Shot
-        ⚡ Thunder
-        🔥 Fire
-        ❄️ Ice
-        👑 Ultra Gun
-        💥 Super Damage
-
-   ✓ Easy / Normal:
-        Boss chết → Unlock Pet
-
-   ✓ Hard:
-        Không có Pet
-
-   ✓ Pet copy sức mạnh người chơi
-   ✓ Pet tự động chiến đấu
-   ✓ Cyber Grid
-   ✓ Particle
-   ✓ Boss HP Bar
-   ✓ Combo
-   ✓ Skill UI
-
-========================================================= */
-
-
-/* =========================================================
-   CANVAS
-========================================================= */
-
-const canvas =
-    document.getElementById("gameCanvas");
-
-const ctx =
-    canvas.getContext("2d");
-
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
 
 function resizeCanvas() {
-
-    canvas.width =
-        canvas.clientWidth;
-
-    canvas.height =
-        canvas.clientHeight;
-
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
 }
 
-
 resizeCanvas();
-
-window.addEventListener(
-    "resize",
-    resizeCanvas
-);
+window.addEventListener("resize", resizeCanvas);
 
 
 /* =========================================================
-   UI ELEMENTS
+   UI
 ========================================================= */
 
-const menu =
-    document.getElementById("menu");
+const menu = document.getElementById("menu");
+const gameOver = document.getElementById("gameOver");
 
-const gameOver =
-    document.getElementById("gameOver");
+const scoreElement = document.getElementById("score");
+const waveElement = document.getElementById("wave");
+const comboElement = document.getElementById("combo");
 
-const scoreElement =
-    document.getElementById("score");
+const healthBar = document.getElementById("healthBar");
+const healthText = document.getElementById("healthText");
 
-const waveElement =
-    document.getElementById("wave");
+const levelText = document.getElementById("levelText");
 
-const comboElement =
-    document.getElementById("combo");
-
-const healthBar =
-    document.getElementById("healthBar");
-
-const healthText =
-    document.getElementById("healthText");
-
-const levelText =
-    document.getElementById("levelText");
-
-const finalScore =
-    document.getElementById("finalScore");
-
-const finalWave =
-    document.getElementById("finalWave");
+const finalScore = document.getElementById("finalScore");
+const finalWave = document.getElementById("finalWave");
 
 const restartButton =
     document.getElementById("restartButton");
 
 
 /* =========================================================
-   GAME CONFIG
+   GAME SETTINGS
 ========================================================= */
 
 const MAX_STAGES = 5;
-
 const WAVES_PER_STAGE = 3;
 
 
 /*
-   TỶ LỆ RƠI SKILL
+    Tỷ lệ rơi vật phẩm theo màn.
 
-   Không quá ít như bản cũ,
-   nhưng cũng không quá nhiều.
+    Stage 1 = 2%
+    Stage 2 = 4%
+    Stage 3 = 6%
+    Stage 4 = 8%
+    Stage 5 = 10%
+
+    Boss luôn rơi 1 reward.
 */
 
 const DROP_RATE = {
 
-    1: 0.05,   // 5%
-
-    2: 0.08,   // 8%
-
-    3: 0.11,   // 11%
-
-    4: 0.14,   // 14%
-
-    5: 0.18    // 18%
+    1: 0.02,
+    2: 0.04,
+    3: 0.06,
+    4: 0.08,
+    5: 0.10
 
 };
 
 
 /* =========================================================
-   DIFFICULTIES
+   DIFFICULTY
 ========================================================= */
 
 const difficulties = {
 
     easy: {
 
-        name:
-            "DỄ",
+        name: "DỄ",
 
-        enemyHP:
-            20,
+        enemyHP: 20,
 
-        enemySpeed:
-            0.65,
+        enemySpeed: 0.65,
 
-        enemyDamage:
-            5,
+        enemyDamage: 5,
 
-        enemyCount:
-            5,
+        enemyCount: 5,
 
-        bossMultiplier:
-            3,
+        bossMultiplier: 3,
 
-        bossSpeed:
-            0.75,
+        bossSpeed: 0.75,
 
-        pet:
-            true
+        pet: true
 
     },
-
 
     normal: {
 
-        name:
-            "BÌNH THƯỜNG",
+        name: "BÌNH THƯỜNG",
 
-        enemyHP:
-            30,
+        enemyHP: 30,
 
-        enemySpeed:
-            0.9,
+        enemySpeed: 0.90,
 
-        enemyDamage:
-            8,
+        enemyDamage: 8,
 
-        enemyCount:
-            7,
+        enemyCount: 7,
 
-        bossMultiplier:
-            4,
+        bossMultiplier: 4,
 
-        bossSpeed:
-            0.9,
+        bossSpeed: 0.9,
 
-        pet:
-            true
+        pet: true
 
     },
 
-
     hard: {
 
-        name:
-            "KHÓ",
+        name: "KHÓ",
 
-        enemyHP:
-            45,
+        enemyHP: 45,
 
-        enemySpeed:
-            1.15,
+        enemySpeed: 1.15,
 
-        enemyDamage:
-            12,
+        enemyDamage: 12,
 
-        enemyCount:
-            9,
+        enemyCount: 9,
 
-        bossMultiplier:
-            5,
+        bossMultiplier: 5,
 
-        bossSpeed:
-            1.05,
+        bossSpeed: 1.05,
 
-        pet:
-            false
+        pet: false
 
     }
 
 };
 
-
-let difficulty =
-    difficulties.normal;
+let difficulty = difficulties.normal;
 
 
 /* =========================================================
    GAME STATE
 ========================================================= */
 
-let gameRunning =
-    false;
+let gameRunning = false;
 
-let score =
-    0;
+let score = 0;
+let combo = 1;
 
-let combo =
-    1;
+let stage = 1;
+let wave = 1;
 
-let stage =
-    1;
-
-let wave =
-    1;
-
+let phase = "battle";
 
 /*
-   battle
-   boss-warning
-   boss
-   reward
-   game-complete
+    battle
+    boss-warning
+    boss
+    reward
+    stage-clear
+    game-complete
 */
 
-let phase =
-    "battle";
-
-
 let enemies = [];
-
 let bullets = [];
-
 let enemyBullets = [];
-
 let particles = [];
-
 let missiles = [];
-
 let lightning = [];
-
 let skills = [];
 
-let boss =
-    null;
+let boss = null;
 
+let spawnTimer = 0;
+let waveClearTimer = 0;
 
-let spawnTimer =
-    0;
-
-let waveClearTimer =
-    0;
-
-let lastTime =
-    0;
-
-let lastKillTime =
-    0;
+let lastTime = 0;
+let lastKillTime = 0;
 
 
 /* =========================================================
    KEYBOARD
 ========================================================= */
 
-const keys = {};
+let keys = {};
 
 
 /* =========================================================
@@ -333,67 +194,44 @@ const keys = {};
 
 const player = {
 
-    x:
-        0,
+    x: 0,
+    y: 0,
 
-    y:
-        0,
+    size: 28,
 
-    size:
-        28,
+    baseSpeed: 4.5,
+    speed: 4.5,
 
-    baseSpeed:
-        4.5,
+    health: 100,
+    maxHealth: 100,
 
-    speed:
-        4.5,
+    damage: 5,
 
-    health:
-        100,
+    bulletCount: 1,
 
-    maxHealth:
-        100,
+    bulletSpeed: 11,
 
-    damage:
-        5,
+    attackCooldown: 0,
 
-    bulletCount:
-        1,
+    baseAttackCooldown: 420,
 
-    bulletSpeed:
-        11,
+    invincible: 0,
 
-    attackCooldown:
-        0,
-
-    baseAttackCooldown:
-        420,
-
-    invincible:
-        0,
-
-    elemental:
-        null,
+    elemental: null,
 
     skillTimers: {
 
-        speed:
-            0,
+        speed: 0,
 
-        rapidFire:
-            0,
+        rapidFire: 0,
 
-        damage:
-            0,
+        damage: 0,
 
-        ultra:
-            0,
+        ultra: 0,
 
-        double:
-            0,
+        double: 0,
 
-        triple:
-            0
+        triple: 0
 
     }
 
@@ -404,40 +242,28 @@ const player = {
    PET
 ========================================================= */
 
-const pet = {
+let pet = {
 
-    active:
-        false,
+    active: false,
 
-    x:
-        0,
+    x: 0,
+    y: 0,
 
-    y:
-        0,
+    size: 20,
 
-    size:
-        20,
+    health: 100,
 
-    health:
-        100,
+    maxHealth: 100,
 
-    maxHealth:
-        100,
+    damage: 5,
 
-    damage:
-        5,
+    bulletCount: 1,
 
-    bulletCount:
-        1,
+    attackCooldown: 0,
 
-    attackCooldown:
-        0,
+    orbitAngle: 0,
 
-    orbitAngle:
-        0,
-
-    elemental:
-        null
+    elemental: null
 
 };
 
@@ -449,589 +275,102 @@ const pet = {
 const SKILLS = [
 
     {
-        id:
-            "bomb",
-
-        name:
-            "BOM",
-
-        icon:
-            "💣",
-
-        chance:
-            8,
-
-        color:
-            "#ff5500"
-
+        id: "bomb",
+        name: "BOM",
+        icon: "💣",
+        chance: 8,
+        color: "#ff5500"
     },
 
-
     {
-        id:
-            "missile",
-
-        name:
-            "TÊN LỬA",
-
-        icon:
-            "🚀",
-
-        chance:
-            8,
-
-        color:
-            "#ff3333"
-
+        id: "missile",
+        name: "TÊN LỬA",
+        icon: "🚀",
+        chance: 8,
+        color: "#ff3333"
     },
 
-
     {
-        id:
-            "clear",
-
-        name:
-            "QUÉT SẠCH",
-
-        icon:
-            "☢️",
-
-        chance:
-            4,
-
-        color:
-            "#ff00ff"
-
+        id: "clear",
+        name: "QUÉT SẠCH",
+        icon: "☢️",
+        chance: 4,
+        color: "#ff00ff"
     },
 
-
     {
-        id:
-            "speed",
-
-        name:
-            "TĂNG TỐC",
-
-        icon:
-            "⚡",
-
-        chance:
-            12,
-
-        color:
-            "#00ffff"
-
+        id: "speed",
+        name: "TĂNG TỐC",
+        icon: "⚡",
+        chance: 12,
+        color: "#00ffff"
     },
 
-
     {
-        id:
-            "rapid",
-
-        name:
-            "RAPID FIRE",
-
-        icon:
-            "🔥",
-
-        chance:
-            18,
-
-        color:
-            "#ffff00"
-
+        id: "rapid",
+        name: "RAPID FIRE",
+        icon: "🔥",
+        chance: 18,
+        color: "#ffff00"
     },
 
-
     {
-        id:
-            "double",
-
-        name:
-            "DOUBLE SHOT",
-
-        icon:
-            "🔫",
-
-        chance:
-            10,
-
-        color:
-            "#00ff88"
-
+        id: "double",
+        name: "DOUBLE SHOT",
+        icon: "🔫",
+        chance: 10,
+        color: "#00ff88"
     },
 
-
     {
-        id:
-            "triple",
-
-        name:
-            "TRIPLE SHOT",
-
-        icon:
-            "🔫",
-
-        chance:
-            7,
-
-        color:
-            "#00ff88"
-
+        id: "triple",
+        name: "TRIPLE SHOT",
+        icon: "🔫",
+        chance: 7,
+        color: "#00ff88"
     },
 
-
     {
-        id:
-            "thunder",
-
-        name:
-            "SẤM SÉT",
-
-        icon:
-            "⚡",
-
-        chance:
-            8,
-
-        color:
-            "#9d7cff"
-
+        id: "thunder",
+        name: "SẤM SÉT",
+        icon: "⚡",
+        chance: 8,
+        color: "#9d7cff"
     },
 
-
     {
-        id:
-            "fire",
-
-        name:
-            "LỬA",
-
-        icon:
-            "🔥",
-
-        chance:
-            7,
-
-        color:
-            "#ff4400"
-
+        id: "fire",
+        name: "LỬA",
+        icon: "🔥",
+        chance: 7,
+        color: "#ff4400"
     },
 
-
     {
-        id:
-            "ice",
-
-        name:
-            "BĂNG",
-
-        icon:
-            "❄️",
-
-        chance:
-            6,
-
-        color:
-            "#66ddff"
-
+        id: "ice",
+        name: "BĂNG",
+        icon: "❄️",
+        chance: 6,
+        color: "#66ddff"
     },
 
-
     {
-        id:
-            "ultra",
-
-        name:
-            "ULTRA GUN",
-
-        icon:
-            "👑",
-
-        chance:
-            5,
-
-        color:
-            "#ff00ff"
-
+        id: "ultra",
+        name: "ULTRA GUN",
+        icon: "👑",
+        chance: 5,
+        color: "#ff00ff"
     },
 
-
     {
-        id:
-            "damage",
-
-        name:
-            "SUPER DAMAGE",
-
-        icon:
-            "💥",
-
-        chance:
-            7,
-
-        color:
-            "#ff0055"
-
+        id: "damage",
+        name: "SUPER DAMAGE",
+        icon: "💥",
+        chance: 7,
+        color: "#ff0055"
     }
 
 ];
-
-
-/* =========================================================
-   CREATE GAME UI
-========================================================= */
-
-function createGameUI() {
-
-    if (
-        document.getElementById(
-            "skillPanel"
-        )
-    ) {
-
-        return;
-
-    }
-
-
-    const panel =
-        document.createElement(
-            "div"
-        );
-
-
-    panel.id =
-        "skillPanel";
-
-
-    panel.innerHTML = `
-
-        <div class="skill-title">
-            ACTIVE SKILLS
-        </div>
-
-        <div id="activeSkills"></div>
-
-        <div id="petStatus"></div>
-
-    `;
-
-
-    document
-        .querySelector(".game-box")
-        .appendChild(panel);
-
-
-    const style =
-        document.createElement(
-            "style"
-        );
-
-
-    style.textContent = `
-
-        #skillPanel {
-
-            position:absolute;
-
-            top:55px;
-
-            left:20px;
-
-            z-index:30;
-
-            pointer-events:none;
-
-        }
-
-
-        .skill-title {
-
-            color:#00ffff;
-
-            font-size:9px;
-
-            letter-spacing:2px;
-
-            text-shadow:
-                0 0 10px #00ffff;
-
-        }
-
-
-        #activeSkills {
-
-            display:flex;
-
-            gap:5px;
-
-            margin-top:6px;
-
-        }
-
-
-        .active-skill {
-
-            padding:5px 7px;
-
-            border:
-                1px solid #00ffff;
-
-            background:
-                rgba(0,0,20,.85);
-
-            box-shadow:
-                0 0 12px #00ffff;
-
-            text-align:center;
-
-        }
-
-
-        .active-skill-icon {
-
-            display:block;
-
-            font-size:18px;
-
-        }
-
-
-        .active-skill-name {
-
-            font-size:6px;
-
-            color:white;
-
-        }
-
-
-        #petStatus {
-
-            color:#ff00ff;
-
-            font-size:9px;
-
-            margin-top:8px;
-
-            text-shadow:
-                0 0 10px #ff00ff;
-
-        }
-
-
-        .skill-drop {
-
-            position:absolute;
-
-            width:58px;
-
-            height:58px;
-
-            border-radius:50%;
-
-            display:flex;
-
-            align-items:center;
-
-            justify-content:center;
-
-            background:
-                rgba(0,5,20,.95);
-
-            border:2px solid;
-
-            box-shadow:
-                0 0 25px currentColor;
-
-            font-size:28px;
-
-            z-index:25;
-
-            animation:
-                skillPulse .7s infinite alternate;
-
-        }
-
-
-        @keyframes skillPulse {
-
-            from {
-
-                transform:
-                    scale(.85);
-
-            }
-
-            to {
-
-                transform:
-                    scale(1.12);
-
-            }
-
-        }
-
-
-        .boss-warning {
-
-            position:absolute;
-
-            left:50%;
-
-            top:35%;
-
-            transform:
-                translate(-50%,-50%);
-
-            z-index:50;
-
-            color:#ff0055;
-
-            font-size:34px;
-
-            font-weight:bold;
-
-            letter-spacing:7px;
-
-            text-shadow:
-                0 0 10px #ff0055,
-                0 0 30px #ff0055;
-
-            animation:
-                warning .5s infinite alternate;
-
-            pointer-events:none;
-
-        }
-
-
-        @keyframes warning {
-
-            from {
-
-                opacity:.45;
-
-            }
-
-            to {
-
-                opacity:1;
-
-            }
-
-        }
-
-
-        .boss-bar {
-
-            position:absolute;
-
-            top:18px;
-
-            left:50%;
-
-            transform:
-                translateX(-50%);
-
-            width:55%;
-
-            z-index:40;
-
-            pointer-events:none;
-
-        }
-
-
-        .boss-name {
-
-            text-align:center;
-
-            color:#ff0055;
-
-            font-weight:bold;
-
-            letter-spacing:3px;
-
-            margin-bottom:5px;
-
-            text-shadow:
-                0 0 15px #ff0055;
-
-        }
-
-
-        .boss-health-bg {
-
-            width:100%;
-
-            height:14px;
-
-            border:
-                1px solid #ff0055;
-
-            background:
-                rgba(255,0,80,.15);
-
-        }
-
-
-        .boss-health {
-
-            height:100%;
-
-            width:100%;
-
-            background:#ff0055;
-
-            box-shadow:
-                0 0 18px #ff0055;
-
-            transition:
-                width .1s;
-
-        }
-
-
-        .round-message {
-
-            position:absolute;
-
-            top:45%;
-
-            left:50%;
-
-            transform:
-                translate(-50%,-50%);
-
-            z-index:45;
-
-            color:#00ffff;
-
-            text-align:center;
-
-            font-size:30px;
-
-            font-weight:bold;
-
-            letter-spacing:5px;
-
-            text-shadow:
-                0 0 25px #00ffff;
-
-            pointer-events:none;
-
-        }
-
-    `;
-
-
-    document.head.appendChild(
-        style
-    );
-
-}
 
 
 /* =========================================================
@@ -1040,101 +379,53 @@ function createGameUI() {
 
 function startGame(level) {
 
-    difficulty =
-        difficulties[level];
+    difficulty = difficulties[level];
 
+    gameRunning = true;
 
-    gameRunning =
-        true;
+    score = 0;
 
+    combo = 1;
 
-    score =
-        0;
+    stage = 1;
 
+    wave = 1;
 
-    combo =
-        1;
+    phase = "battle";
 
+    enemies = [];
+    bullets = [];
+    enemyBullets = [];
+    particles = [];
+    missiles = [];
+    lightning = [];
+    skills = [];
 
-    stage =
-        1;
+    boss = null;
 
+    spawnTimer = 0;
+    waveClearTimer = 0;
 
-    wave =
-        1;
-
-
-    phase =
-        "battle";
-
-
-    enemies =
-        [];
-
-    bullets =
-        [];
-
-    enemyBullets =
-        [];
-
-    particles =
-        [];
-
-    missiles =
-        [];
-
-    lightning =
-        [];
-
-    skills =
-        [];
-
-
-    boss =
-        null;
-
-
-    spawnTimer =
-        0;
-
-    waveClearTimer =
-        0;
-
-
-    player.health =
-        player.maxHealth;
-
+    player.health = player.maxHealth;
 
     player.x =
         canvas.width / 2;
 
-
     player.y =
         canvas.height / 2;
-
 
     player.speed =
         player.baseSpeed;
 
+    player.damage = 5;
 
-    player.damage =
-        5;
+    player.bulletCount = 1;
 
+    player.elemental = null;
 
-    player.bulletCount =
-        1;
+    player.attackCooldown = 0;
 
-
-    player.elemental =
-        null;
-
-
-    player.attackCooldown =
-        0;
-
-
-    player.invincible =
-        0;
+    player.invincible = 0;
 
 
     Object.keys(
@@ -1142,41 +433,29 @@ function startGame(level) {
     ).forEach(
         key => {
 
-            player.skillTimers[key] =
-                0;
+            player.skillTimers[key] = 0;
 
         }
     );
 
 
-    pet.active =
-        false;
+    /*
+       Pet chỉ xuất hiện sau boss
+       Easy / Normal.
+    */
+
+    pet.active = false;
+
+    pet.x = player.x + 55;
+    pet.y = player.y;
+    pet.health = pet.maxHealth;
 
 
-    pet.x =
-        player.x + 55;
-
-
-    pet.y =
-        player.y;
-
-
-    pet.health =
-        pet.maxHealth;
-
-
-    menu.classList.add(
-        "hidden"
-    );
-
-
-    gameOver.classList.add(
-        "hidden"
-    );
+    menu.classList.add("hidden");
+    gameOver.classList.add("hidden");
 
 
     createGameUI();
-
 
     updateUI();
 
@@ -1199,6 +478,218 @@ function startGame(level) {
 
 
 /* =========================================================
+   GAME UI
+========================================================= */
+
+function createGameUI() {
+
+    if (
+        !document.getElementById(
+            "skillPanel"
+        )
+    ) {
+
+        const panel =
+            document.createElement(
+                "div"
+            );
+
+        panel.id =
+            "skillPanel";
+
+        panel.innerHTML = `
+            <div class="skill-title">
+                ACTIVE SKILLS
+            </div>
+
+            <div id="activeSkills"></div>
+
+            <div id="petStatus"></div>
+        `;
+
+
+        document
+            .querySelector(".game-box")
+            .appendChild(panel);
+
+
+        const style =
+            document.createElement(
+                "style"
+            );
+
+        style.textContent = `
+
+            #skillPanel {
+                position:absolute;
+                top:55px;
+                left:20px;
+                z-index:30;
+                pointer-events:none;
+            }
+
+            .skill-title {
+                color:#00ffff;
+                font-size:9px;
+                letter-spacing:2px;
+                text-shadow:0 0 10px #00ffff;
+            }
+
+            #activeSkills {
+                display:flex;
+                gap:5px;
+                margin-top:6px;
+            }
+
+            .active-skill {
+                padding:5px 7px;
+                border:1px solid #00ffff;
+                background:rgba(0,0,20,.85);
+                box-shadow:0 0 12px #00ffff;
+                text-align:center;
+            }
+
+            .active-skill-icon {
+                display:block;
+                font-size:18px;
+            }
+
+            .active-skill-name {
+                font-size:6px;
+                color:white;
+            }
+
+            #petStatus {
+                color:#ff00ff;
+                font-size:9px;
+                margin-top:8px;
+                text-shadow:0 0 10px #ff00ff;
+            }
+
+            .skill-drop {
+                position:absolute;
+                width:58px;
+                height:58px;
+                border-radius:50%;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                background:rgba(0,5,20,.95);
+                border:2px solid;
+                box-shadow:0 0 25px currentColor;
+                font-size:28px;
+                z-index:25;
+                animation:skillPulse .7s infinite alternate;
+            }
+
+            @keyframes skillPulse {
+
+                from {
+                    transform:scale(.85);
+                }
+
+                to {
+                    transform:scale(1.12);
+                }
+
+            }
+
+            .boss-warning {
+                position:absolute;
+                left:50%;
+                top:35%;
+                transform:translate(-50%,-50%);
+                z-index:50;
+                color:#ff0055;
+                font-size:34px;
+                font-weight:bold;
+                letter-spacing:7px;
+                text-shadow:
+                    0 0 10px #ff0055,
+                    0 0 30px #ff0055;
+                animation:warning .5s infinite alternate;
+                pointer-events:none;
+            }
+
+            @keyframes warning {
+
+                from {
+                    opacity:.45;
+                    transform:
+                        translate(-50%,-50%)
+                        scale(.95);
+                }
+
+                to {
+                    opacity:1;
+                    transform:
+                        translate(-50%,-50%)
+                        scale(1.05);
+                }
+
+            }
+
+            .boss-bar {
+                position:absolute;
+                top:18px;
+                left:50%;
+                transform:translateX(-50%);
+                width:55%;
+                z-index:40;
+                pointer-events:none;
+            }
+
+            .boss-name {
+                text-align:center;
+                color:#ff0055;
+                font-weight:bold;
+                letter-spacing:3px;
+                margin-bottom:5px;
+                text-shadow:0 0 15px #ff0055;
+            }
+
+            .boss-health-bg {
+                width:100%;
+                height:14px;
+                border:1px solid #ff0055;
+                background:rgba(255,0,80,.15);
+            }
+
+            .boss-health {
+                height:100%;
+                width:100%;
+                background:#ff0055;
+                box-shadow:0 0 18px #ff0055;
+                transition:width .1s;
+            }
+
+            .round-message {
+                position:absolute;
+                top:45%;
+                left:50%;
+                transform:translate(-50%,-50%);
+                z-index:45;
+                color:#00ffff;
+                text-align:center;
+                font-size:30px;
+                font-weight:bold;
+                letter-spacing:5px;
+                text-shadow:0 0 25px #00ffff;
+                pointer-events:none;
+            }
+
+        `;
+
+        document.head.appendChild(
+            style
+        );
+
+    }
+
+}
+
+
+/* =========================================================
    MESSAGE
 ========================================================= */
 
@@ -1212,10 +703,8 @@ function showMessage(
             "div"
         );
 
-
     element.className =
         "round-message";
-
 
     element.textContent =
         text;
@@ -1244,6 +733,16 @@ function showMessage(
 
 function spawnEnemy() {
 
+    /*
+       Stage càng cao → enemy càng nhanh.
+
+       Stage 1 = 1.00
+       Stage 2 = 1.12
+       Stage 3 = 1.24
+       Stage 4 = 1.36
+       Stage 5 = 1.48
+    */
+
     const stageSpeed =
         1 +
         (stage - 1) *
@@ -1260,12 +759,9 @@ function spawnEnemy() {
     let y;
 
 
-    if (
-        side === 0
-    ) {
+    if (side === 0) {
 
-        x =
-            -30;
+        x = -30;
 
         y =
             Math.random() *
@@ -1273,9 +769,7 @@ function spawnEnemy() {
 
     }
 
-    else if (
-        side === 1
-    ) {
+    else if (side === 1) {
 
         x =
             canvas.width + 30;
@@ -1286,16 +780,13 @@ function spawnEnemy() {
 
     }
 
-    else if (
-        side === 2
-    ) {
+    else if (side === 2) {
 
         x =
             Math.random() *
             canvas.width;
 
-        y =
-            -30;
+        y = -30;
 
     }
 
@@ -1311,25 +802,14 @@ function spawnEnemy() {
     }
 
 
-    /*
-       Elite xuất hiện ít.
-    */
-
     const elite =
         Math.random() <
-        (
-            0.05 +
-            stage * 0.01
-        );
+        (0.05 + stage * 0.01);
 
 
     const hp =
         difficulty.enemyHP *
-        (
-            1 +
-            (stage - 1) *
-            0.15
-        );
+        (1 + (stage - 1) * 0.15);
 
 
     enemies.push({
@@ -1338,47 +818,28 @@ function spawnEnemy() {
         y,
 
         size:
-            elite
-                ? 30
-                : 21,
+            elite ? 30 : 21,
 
         speed:
             difficulty.enemySpeed *
             stageSpeed *
-            (
-                elite
-                    ? 1.2
-                    : 1
-            ),
+            (elite ? 1.2 : 1),
 
         health:
             hp *
-            (
-                elite
-                    ? 2
-                    : 1
-            ),
+            (elite ? 2 : 1),
 
         maxHealth:
             hp *
-            (
-                elite
-                    ? 2
-                    : 1
-            ),
+            (elite ? 2 : 1),
 
         damage:
             difficulty.enemyDamage *
-            (
-                1 +
-                (stage - 1) *
-                0.12
-            ),
+            (1 + (stage - 1) * 0.12),
 
         elite,
 
-        slow:
-            1
+        slow: 1
 
     });
 
@@ -1398,7 +859,6 @@ function updateEnemies(delta) {
                 player.x -
                 enemy.x;
 
-
             const dy =
                 player.y -
                 enemy.y;
@@ -1411,25 +871,16 @@ function updateEnemies(delta) {
                 );
 
 
-            if (
-                distance > 0
-            ) {
+            if (distance > 0) {
 
                 enemy.x +=
-                    (
-                        dx /
-                        distance
-                    ) *
+                    dx / distance *
                     enemy.speed *
                     enemy.slow *
                     delta;
 
-
                 enemy.y +=
-                    (
-                        dy /
-                        distance
-                    ) *
+                    dy / distance *
                     enemy.speed *
                     enemy.slow *
                     delta;
@@ -1461,32 +912,38 @@ function updateEnemies(delta) {
 
 function autoFire() {
 
-    if (
-        !gameRunning
-    )
+    if (!gameRunning)
         return;
 
 
     if (
         phase !== "battle" &&
         phase !== "boss"
-    )
+    ) {
+
         return;
+
+    }
 
 
     if (
         player.attackCooldown > 0
-    )
+    ) {
+
         return;
 
+    }
 
-    let target =
-        null;
 
+    let target = null;
 
     let nearest =
         Infinity;
 
+
+    /*
+       Tìm quái gần nhất
+    */
 
     enemies.forEach(
         enemy => {
@@ -1506,11 +963,9 @@ function autoFire() {
                 nearest
             ) {
 
-                nearest =
-                    distance;
+                nearest = distance;
 
-                target =
-                    enemy;
+                target = enemy;
 
             }
 
@@ -1518,13 +973,17 @@ function autoFire() {
     );
 
 
+    /*
+       Nếu không còn quái
+       thì bắn boss
+    */
+
     if (
         !target &&
         boss
     ) {
 
-        target =
-            boss;
+        target = boss;
 
     }
 
@@ -1542,8 +1001,7 @@ function autoFire() {
         0
     ) {
 
-        cooldown *=
-            0.45;
+        cooldown *= 0.45;
 
     }
 
@@ -1553,8 +1011,7 @@ function autoFire() {
         0
     ) {
 
-        cooldown *=
-            0.18;
+        cooldown *= 0.18;
 
     }
 
@@ -1568,22 +1025,18 @@ function autoFire() {
 
 
     if (
-        player.skillTimers.triple >
-        0
+        player.skillTimers.triple > 0
     ) {
 
-        count =
-            3;
+        count = 3;
 
     }
 
     else if (
-        player.skillTimers.double >
-        0
+        player.skillTimers.double > 0
     ) {
 
-        count =
-            2;
+        count = 2;
 
     }
 
@@ -1604,13 +1057,10 @@ function autoFire() {
         i++
     ) {
 
-        let spread =
-            0;
+        let spread = 0;
 
 
-        if (
-            count > 1
-        ) {
+        if (count > 1) {
 
             spread =
                 (
@@ -1624,23 +1074,19 @@ function autoFire() {
 
         bullets.push({
 
-            x:
-                player.x,
+            x: player.x,
 
-            y:
-                player.y,
+            y: player.y,
 
             vx:
                 Math.cos(
-                    angle +
-                    spread
+                    angle + spread
                 ) *
                 player.bulletSpeed,
 
             vy:
                 Math.sin(
-                    angle +
-                    spread
+                    angle + spread
                 ) *
                 player.bulletSpeed,
 
@@ -1653,8 +1099,7 @@ function autoFire() {
             owner:
                 "player",
 
-            life:
-                1200
+            life: 1200
 
         });
 
@@ -1664,7 +1109,7 @@ function autoFire() {
 
 
 /* =========================================================
-   PET FIRE
+   PET AUTO FIRE
 ========================================================= */
 
 function petAutoFire() {
@@ -1681,9 +1126,7 @@ function petAutoFire() {
         return;
 
 
-    let target =
-        null;
-
+    let target = null;
 
     let nearest =
         Infinity;
@@ -1707,11 +1150,9 @@ function petAutoFire() {
                 nearest
             ) {
 
-                nearest =
-                    distance;
+                nearest = distance;
 
-                target =
-                    enemy;
+                target = enemy;
 
             }
 
@@ -1724,8 +1165,7 @@ function petAutoFire() {
         boss
     ) {
 
-        target =
-            boss;
+        target = boss;
 
     }
 
@@ -1754,8 +1194,7 @@ function petAutoFire() {
         i++
     ) {
 
-        let spread =
-            0;
+        let spread = 0;
 
 
         if (
@@ -1774,23 +1213,19 @@ function petAutoFire() {
 
         bullets.push({
 
-            x:
-                pet.x,
+            x: pet.x,
 
-            y:
-                pet.y,
+            y: pet.y,
 
             vx:
                 Math.cos(
-                    angle +
-                    spread
+                    angle + spread
                 ) *
                 player.bulletSpeed,
 
             vy:
                 Math.sin(
-                    angle +
-                    spread
+                    angle + spread
                 ) *
                 player.bulletSpeed,
 
@@ -1803,8 +1238,7 @@ function petAutoFire() {
             owner:
                 "pet",
 
-            life:
-                1200
+            life: 1200
 
         });
 
@@ -1814,7 +1248,7 @@ function petAutoFire() {
 
 
 /* =========================================================
-   PET UPDATE
+   UPDATE PET
 ========================================================= */
 
 function updatePet(delta) {
@@ -1825,13 +1259,15 @@ function updatePet(delta) {
         return;
 
 
+    /*
+       Pet bay quanh người chơi
+    */
+
     pet.orbitAngle +=
-        0.025 *
-        delta;
+        0.025 * delta;
 
 
-    const radius =
-        60;
+    const radius = 60;
 
 
     const targetX =
@@ -1851,26 +1287,18 @@ function updatePet(delta) {
 
 
     pet.x +=
-        (
-            targetX -
-            pet.x
-        ) *
+        (targetX - pet.x) *
         0.08 *
         delta;
 
-
     pet.y +=
-        (
-            targetY -
-            pet.y
-        ) *
+        (targetY - pet.y) *
         0.08 *
         delta;
 
 
     pet.attackCooldown -=
-        16.67 *
-        delta;
+        16.67 * delta;
 
 
     petAutoFire();
@@ -1879,7 +1307,7 @@ function updatePet(delta) {
 
 
 /* =========================================================
-   BULLETS
+   BULLET UPDATE
 ========================================================= */
 
 function updateBullets(delta) {
@@ -1890,7 +1318,6 @@ function updateBullets(delta) {
             bullet.x +=
                 bullet.vx *
                 delta;
-
 
             bullet.y +=
                 bullet.vy *
@@ -1917,12 +1344,10 @@ function updateBullets(delta) {
 
 
             /*
-               Boss collision
+               Boss
             */
 
-            if (
-                boss
-            ) {
+            if (boss) {
 
                 const distance =
                     Math.hypot(
@@ -1945,9 +1370,7 @@ function updateBullets(delta) {
                     );
 
 
-                    bullet.life =
-                        0;
-
+                    bullet.life = 0;
 
                     return;
 
@@ -1957,7 +1380,7 @@ function updateBullets(delta) {
 
 
             /*
-               Enemy collision
+               Enemy
             */
 
             enemies.forEach(
@@ -1975,8 +1398,7 @@ function updateBullets(delta) {
 
                     if (
                         distance <
-                        enemy.size +
-                        6
+                        enemy.size + 6
                     ) {
 
                         hitEnemy(
@@ -1985,8 +1407,7 @@ function updateBullets(delta) {
                         );
 
 
-                        bullet.life =
-                            0;
+                        bullet.life = 0;
 
                     }
 
@@ -2017,9 +1438,7 @@ function hitEnemy(
         "thunder"
     ) {
 
-        damage *=
-            2.5;
-
+        damage *= 2.5;
 
         createLightning(
             enemy.x,
@@ -2034,9 +1453,7 @@ function hitEnemy(
         "fire"
     ) {
 
-        damage *=
-            1.8;
-
+        damage *= 1.8;
 
         createExplosion(
             enemy.x,
@@ -2053,12 +1470,9 @@ function hitEnemy(
         "ice"
     ) {
 
-        damage *=
-            1.2;
+        damage *= 1.2;
 
-
-        enemy.slow =
-            0.45;
+        enemy.slow = 0.45;
 
     }
 
@@ -2084,14 +1498,10 @@ function hitEnemy(
    KILL ENEMY
 ========================================================= */
 
-function killEnemy(
-    enemy
-) {
+function killEnemy(enemy) {
 
     const index =
-        enemies.indexOf(
-            enemy
-        );
+        enemies.indexOf(enemy);
 
 
     if (
@@ -2113,8 +1523,7 @@ function killEnemy(
 
 
     /*
-       SKILL DROP
-       5% → 18%
+       Tỷ lệ phụ thuộc màn.
     */
 
     const chance =
@@ -2150,8 +1559,7 @@ function killEnemy(
 
     else {
 
-        combo =
-            1;
+        combo = 1;
 
     }
 
@@ -2177,13 +1585,12 @@ function killEnemy(
 
 
 /* =========================================================
-   RANDOM SKILL
+   SKILL DROP
 ========================================================= */
 
 function getRandomSkill() {
 
-    let total =
-        0;
+    let total = 0;
 
 
     SKILLS.forEach(
@@ -2202,8 +1609,7 @@ function getRandomSkill() {
 
 
     for (
-        const skill
-        of SKILLS
+        const skill of SKILLS
     ) {
 
         random -=
@@ -2225,10 +1631,6 @@ function getRandomSkill() {
 
 }
 
-
-/* =========================================================
-   DROP SKILL
-========================================================= */
 
 function dropSkill(
     x,
@@ -2254,19 +1656,11 @@ function dropSkill(
 
 
     element.style.left =
-        (
-            x -
-            29
-        ) +
-        "px";
+        (x - 29) + "px";
 
 
     element.style.top =
-        (
-            y -
-            29
-        ) +
-        "px";
+        (y - 29) + "px";
 
 
     element.style.color =
@@ -2278,30 +1672,20 @@ function dropSkill(
 
 
     document
-        .querySelector(
-            ".game-box"
-        )
-        .appendChild(
-            element
-        );
+        .querySelector(".game-box")
+        .appendChild(element);
 
 
     skills.push({
 
-        x:
-            x,
+        x,
+        y,
 
-        y:
-            y,
+        type: skill,
 
-        type:
-            skill,
+        element,
 
-        element:
-            element,
-
-        life:
-            12000
+        life: 12000
 
     });
 
@@ -2309,16 +1693,13 @@ function dropSkill(
 
 
 /* =========================================================
-   PICKUP SKILL
+   SKILL PICKUP
 ========================================================= */
 
 function checkSkillPickup() {
 
     skills.forEach(
-        (
-            skill,
-            index
-        ) => {
+        (skill, index) => {
 
             const distance =
                 Math.hypot(
@@ -2359,27 +1740,18 @@ function checkSkillPickup() {
    ACTIVATE SKILL
 ========================================================= */
 
-function activateSkill(
-    skill
-) {
+function activateSkill(skill) {
 
     switch (
         skill.id
     ) {
-
-
-        /*
-           BOMB
-        */
 
         case "bomb":
 
             enemies.forEach(
                 enemy => {
 
-                    enemy.health -=
-                        20;
-
+                    enemy.health -= 20;
 
                     createExplosion(
                         enemy.x,
@@ -2394,20 +1766,12 @@ function activateSkill(
             break;
 
 
-        /*
-           MISSILE
-        */
-
         case "missile":
 
             launchMissiles();
 
             break;
 
-
-        /*
-           CLEAR
-        */
 
         case "clear":
 
@@ -2424,22 +1788,14 @@ function activateSkill(
                 }
             );
 
-
             score +=
                 enemies.length *
                 100;
 
-
-            enemies =
-                [];
-
+            enemies = [];
 
             break;
 
-
-        /*
-           SPEED
-        */
 
         case "speed":
 
@@ -2447,16 +1803,11 @@ function activateSkill(
                 player.baseSpeed *
                 1.8;
 
-
             player.skillTimers.speed =
                 10000;
 
             break;
 
-
-        /*
-           RAPID FIRE
-        */
 
         case "rapid":
 
@@ -2466,15 +1817,9 @@ function activateSkill(
             break;
 
 
-        /*
-           DOUBLE
-        */
-
         case "double":
 
-            player.bulletCount =
-                2;
-
+            player.bulletCount = 2;
 
             player.skillTimers.double =
                 15000;
@@ -2482,15 +1827,9 @@ function activateSkill(
             break;
 
 
-        /*
-           TRIPLE
-        */
-
         case "triple":
 
-            player.bulletCount =
-                3;
-
+            player.bulletCount = 3;
 
             player.skillTimers.triple =
                 15000;
@@ -2498,79 +1837,52 @@ function activateSkill(
             break;
 
 
-        /*
-           THUNDER
-        */
-
         case "thunder":
 
             player.elemental =
                 "thunder";
-
 
             player.skillTimers.damage =
                 15000;
 
             break;
 
-
-        /*
-           FIRE
-        */
 
         case "fire":
 
             player.elemental =
                 "fire";
 
-
             player.skillTimers.damage =
                 15000;
 
             break;
 
-
-        /*
-           ICE
-        */
 
         case "ice":
 
             player.elemental =
                 "ice";
 
-
             player.skillTimers.damage =
                 15000;
 
             break;
 
 
-        /*
-           ULTRA
-        */
-
         case "ultra":
 
             player.skillTimers.ultra =
                 12000;
 
-
-            player.damage =
-                15;
+            player.damage = 15;
 
             break;
 
 
-        /*
-           DAMAGE
-        */
-
         case "damage":
 
-            player.damage =
-                12;
-
+            player.damage = 12;
 
             player.skillTimers.damage =
                 15000;
@@ -2580,6 +1892,12 @@ function activateSkill(
     }
 
 
+    /*
+       Pet copy skill.
+       Pet luôn tương đương sức mạnh hiện tại
+       của player.
+    */
+
     syncPetPower();
 
     updateSkillUI();
@@ -2588,32 +1906,51 @@ function activateSkill(
 
 
 /* =========================================================
-   MISSILE
+   PET COPY PLAYER POWER
+========================================================= */
+
+function syncPetPower() {
+
+    if (
+        !pet.active
+    )
+        return;
+
+
+    pet.damage =
+        player.damage;
+
+
+    pet.bulletCount =
+        player.bulletCount;
+
+
+    pet.elemental =
+        player.elemental;
+
+}
+
+
+/* =========================================================
+   MISSILES
 ========================================================= */
 
 function launchMissiles() {
 
     enemies
-        .slice(
-            0,
-            6
-        )
+        .slice(0, 6)
         .forEach(
             target => {
 
                 missiles.push({
 
-                    x:
-                        player.x,
+                    x: player.x,
 
-                    y:
-                        player.y,
+                    y: player.y,
 
-                    target:
-                        target,
+                    target,
 
-                    speed:
-                        7,
+                    speed: 7,
 
                     damage:
                         player.damage *
@@ -2627,15 +1964,10 @@ function launchMissiles() {
 }
 
 
-function updateMissiles(
-    delta
-) {
+function updateMissiles(delta) {
 
     missiles.forEach(
-        (
-            missile,
-            index
-        ) => {
+        (missile, index) => {
 
             if (
                 !enemies.includes(
@@ -2660,7 +1992,6 @@ function updateMissiles(
             const dx =
                 target.x -
                 missile.x;
-
 
             const dy =
                 target.y -
@@ -2691,8 +2022,7 @@ function updateMissiles(
 
 
                 if (
-                    target.health <=
-                    0
+                    target.health <= 0
                 ) {
 
                     killEnemy(
@@ -2707,26 +2037,19 @@ function updateMissiles(
                     1
                 );
 
-
                 return;
 
             }
 
 
             missile.x +=
-                (
-                    dx /
-                    distance
-                ) *
+                dx / distance *
                 missile.speed *
                 delta;
 
 
             missile.y +=
-                (
-                    dy /
-                    distance
-                ) *
+                dy / distance *
                 missile.speed *
                 delta;
 
@@ -2737,7 +2060,7 @@ function updateMissiles(
 
 
 /* =========================================================
-   BOSS WARNING
+   BOSS
 ========================================================= */
 
 function startBossWarning() {
@@ -2761,12 +2084,8 @@ function startBossWarning() {
 
 
     document
-        .querySelector(
-            ".game-box"
-        )
-        .appendChild(
-            warning
-        );
+        .querySelector(".game-box")
+        .appendChild(warning);
 
 
     setTimeout(
@@ -2783,10 +2102,6 @@ function startBossWarning() {
 }
 
 
-/* =========================================================
-   SPAWN BOSS
-========================================================= */
-
 function spawnBoss() {
 
     phase =
@@ -2794,26 +2109,22 @@ function spawnBoss() {
 
 
     /*
-       Máu quái thường ở Stage 5
+       Boss máu dựa trực tiếp
+       trên máu quái thường.
+
+       Easy   = 3×
+       Normal = 4×
+       Hard   = 5×
     */
 
     const normalEnemyHP =
         difficulty.enemyHP *
         (
             1 +
-            (
-                stage - 1
-            ) *
+            (stage - 1) *
             0.15
         );
 
-
-    /*
-       Boss:
-       Easy   = 3x
-       Normal = 4x
-       Hard   = 5x
-    */
 
     const bossHP =
         normalEnemyHP *
@@ -2828,8 +2139,7 @@ function spawnBoss() {
         y:
             100,
 
-        size:
-            70,
+        size: 70,
 
         health:
             bossHP,
@@ -2841,20 +2151,15 @@ function spawnBoss() {
             difficulty.bossSpeed *
             (
                 1 +
-                (
-                    stage - 1
-                ) *
-                0.1
+                (stage - 1) *
+                0.10
             ),
 
-        phase:
-            1,
+        phase: 1,
 
-        attackTimer:
-            900,
+        attackTimer: 900,
 
-        spawnTimer:
-            2500,
+        spawnTimer: 2500,
 
         name:
             "CYBER DEMON",
@@ -2877,12 +2182,10 @@ function spawnBoss() {
 
 
 /* =========================================================
-   UPDATE BOSS
+   BOSS UPDATE
 ========================================================= */
 
-function updateBoss(
-    delta
-) {
+function updateBoss(delta) {
 
     if (!boss)
         return;
@@ -2891,7 +2194,6 @@ function updateBoss(
     const dx =
         player.x -
         boss.x;
-
 
     const dy =
         player.y -
@@ -2906,7 +2208,7 @@ function updateBoss(
 
 
     /*
-       Boss giữ khoảng cách
+       Boss không lao sát player
     */
 
     if (
@@ -2914,19 +2216,12 @@ function updateBoss(
     ) {
 
         boss.x +=
-            (
-                dx /
-                distance
-            ) *
+            dx / distance *
             boss.speed *
             delta;
 
-
         boss.y +=
-            (
-                dy /
-                distance
-            ) *
+            dy / distance *
             boss.speed *
             delta;
 
@@ -2934,23 +2229,18 @@ function updateBoss(
 
 
     /*
-       Boss Phase 2
+       Phase 2
     */
 
     if (
         boss.health <=
-        boss.maxHealth *
-        0.5
-        &&
+        boss.maxHealth * .5 &&
         boss.phase === 1
     ) {
 
-        boss.phase =
-            2;
+        boss.phase = 2;
 
-
-        boss.speed *=
-            1.5;
+        boss.speed *= 1.5;
 
 
         showMessage(
@@ -2970,8 +2260,7 @@ function updateBoss(
 
 
     boss.attackTimer -=
-        16.67 *
-        delta;
+        16.67 * delta;
 
 
     if (
@@ -2990,8 +2279,7 @@ function updateBoss(
 
 
     boss.spawnTimer -=
-        16.67 *
-        delta;
+        16.67 * delta;
 
 
     if (
@@ -3069,37 +2357,28 @@ function bossAttack() {
         const spread =
             (
                 i -
-                (
-                    count - 1
-                ) / 2
+                (count - 1) / 2
             ) *
-            0.11;
+            .11;
 
 
         enemyBullets.push({
 
-            x:
-                boss.x,
+            x: boss.x,
 
-            y:
-                boss.y,
+            y: boss.y,
 
             vx:
                 Math.cos(
-                    angle +
-                    spread
-                ) *
-                4.5,
+                    angle + spread
+                ) * 4.5,
 
             vy:
                 Math.sin(
-                    angle +
-                    spread
-                ) *
-                4.5,
+                    angle + spread
+                ) * 4.5,
 
-            life:
-                2500
+            life: 2500
 
         });
 
@@ -3117,7 +2396,7 @@ function bossAttack() {
 
 
 /* =========================================================
-   HIT BOSS
+   BOSS HIT
 ========================================================= */
 
 function hitBoss(
@@ -3134,13 +2413,10 @@ function hitBoss(
 
 
     if (
-        elemental ===
-        "thunder"
+        elemental === "thunder"
     ) {
 
-        finalDamage *=
-            2.5;
-
+        finalDamage *= 2.5;
 
         createLightning(
             boss.x,
@@ -3151,13 +2427,10 @@ function hitBoss(
 
 
     if (
-        elemental ===
-        "fire"
+        elemental === "fire"
     ) {
 
-        finalDamage *=
-            1.8;
-
+        finalDamage *= 1.8;
 
         createExplosion(
             boss.x,
@@ -3170,12 +2443,10 @@ function hitBoss(
 
 
     if (
-        elemental ===
-        "ice"
+        elemental === "ice"
     ) {
 
-        finalDamage *=
-            1.2;
+        finalDamage *= 1.2;
 
     }
 
@@ -3219,7 +2490,7 @@ function killBoss() {
 
 
     /*
-       BOSS LUÔN DROP 1 SKILL
+       Boss luôn cho 1 skill
     */
 
     dropSkill(
@@ -3229,22 +2500,21 @@ function killBoss() {
 
 
     /*
-       EASY / NORMAL:
-       UNLOCK PET
+       Easy / Normal:
+       nhận Pet sau boss.
+
+       Hard:
+       không pet.
     */
 
     if (
         difficulty.pet
     ) {
 
-        pet.active =
-            true;
-
+        pet.active = true;
 
         pet.x =
-            player.x +
-            60;
-
+            player.x + 60;
 
         pet.y =
             player.y;
@@ -3271,17 +2541,15 @@ function killBoss() {
         bossBar.remove();
 
 
-    boss =
-        null;
+    boss = null;
 
 
     /*
-       Stage 5 hoàn thành
+       Nếu đã là Stage 5
     */
 
     if (
-        stage >=
-        MAX_STAGES
+        stage >= MAX_STAGES
     ) {
 
         completeGame();
@@ -3292,7 +2560,7 @@ function killBoss() {
 
 
     /*
-       Sang stage tiếp theo
+       Sang màn tiếp theo
     */
 
     setTimeout(
@@ -3300,20 +2568,15 @@ function killBoss() {
 
             stage++;
 
-            wave =
-                1;
+            wave = 1;
 
-            phase =
-                "battle";
+            phase = "battle";
 
-            enemies =
-                [];
+            enemies = [];
 
-            enemyBullets =
-                [];
+            enemyBullets = [];
 
-            spawnTimer =
-                0;
+            spawnTimer = 0;
 
 
             showMessage(
@@ -3377,12 +2640,8 @@ function createBossBar() {
 
 
     document
-        .querySelector(
-            ".game-box"
-        )
-        .appendChild(
-            bar
-        );
+        .querySelector(".game-box")
+        .appendChild(bar);
 
 }
 
@@ -3406,13 +2665,10 @@ function updateBossHealth() {
     bar.style.width =
         Math.max(
             0,
-
             boss.health /
             boss.maxHealth *
             100
-
-        ) +
-        "%";
+        ) + "%";
 
 }
 
@@ -3421,20 +2677,14 @@ function updateBossHealth() {
    ENEMY BULLETS
 ========================================================= */
 
-function updateEnemyBullets(
-    delta
-) {
+function updateEnemyBullets(delta) {
 
     enemyBullets.forEach(
-        (
-            bullet,
-            index
-        ) => {
+        (bullet, index) => {
 
             bullet.x +=
                 bullet.vx *
                 delta;
-
 
             bullet.y +=
                 bullet.vy *
@@ -3466,8 +2716,7 @@ function updateEnemyBullets(
                 );
 
 
-                bullet.life =
-                    0;
+                bullet.life = 0;
 
             }
 
@@ -3493,9 +2742,7 @@ function updateEnemyBullets(
    PLAYER DAMAGE
 ========================================================= */
 
-function damagePlayer(
-    amount
-) {
+function damagePlayer(amount) {
 
     if (
         player.invincible > 0
@@ -3555,35 +2802,25 @@ function createExplosion(
 
         const speed =
             Math.random() *
-            5 +
-            1;
+            5 + 1;
 
 
         particles.push({
 
-            x:
-                x,
-
-            y:
-                y,
+            x,
+            y,
 
             vx:
-                Math.cos(
-                    angle
-                ) *
+                Math.cos(angle) *
                 speed,
 
             vy:
-                Math.sin(
-                    angle
-                ) *
+                Math.sin(angle) *
                 speed,
 
-            life:
-                1,
+            life: 1,
 
-            color:
-                color
+            color
 
         });
 
@@ -3592,9 +2829,7 @@ function createExplosion(
 }
 
 
-function updateParticles(
-    delta
-) {
+function updateParticles(delta) {
 
     particles.forEach(
         particle => {
@@ -3603,14 +2838,12 @@ function updateParticles(
                 particle.vx *
                 delta;
 
-
             particle.y +=
                 particle.vy *
                 delta;
 
-
             particle.life -=
-                0.025 *
+                .025 *
                 delta;
 
         }
@@ -3620,8 +2853,7 @@ function updateParticles(
     particles =
         particles.filter(
             particle =>
-                particle.life >
-                0
+                particle.life > 0
         );
 
 }
@@ -3638,14 +2870,10 @@ function createLightning(
 
     lightning.push({
 
-        x:
-            x,
+        x,
+        y,
 
-        y:
-            y,
-
-        life:
-            15
+        life: 15
 
     });
 
@@ -3666,20 +2894,17 @@ function updateLightning() {
     lightning =
         lightning.filter(
             bolt =>
-                bolt.life >
-                0
+                bolt.life > 0
         );
 
 }
 
 
 /* =========================================================
-   UPDATE SKILLS
+   SKILL TIMER
 ========================================================= */
 
-function updateSkills(
-    delta
-) {
+function updateSkills(delta) {
 
     Object.keys(
         player.skillTimers
@@ -3701,13 +2926,8 @@ function updateSkills(
     );
 
 
-    /*
-       Speed hết
-    */
-
     if (
-        player.skillTimers.speed <=
-        0
+        player.skillTimers.speed <= 0
     ) {
 
         player.speed =
@@ -3716,50 +2936,42 @@ function updateSkills(
     }
 
 
-    /*
-       Elemental / Damage hết
-    */
-
     if (
-        player.skillTimers.damage <=
-        0
+        player.skillTimers.damage <= 0
     ) {
 
-        player.damage =
-            5;
+        player.damage = 5;
 
-        player.elemental =
-            null;
+        player.elemental = null;
 
     }
 
 
-    /*
-       Double / Triple hết
-    */
-
     if (
-        player.skillTimers.double <=
-        0 &&
-        player.skillTimers.triple <=
-        0
+        player.skillTimers.double <= 0 &&
+        player.skillTimers.triple <= 0
     ) {
 
-        player.bulletCount =
-            1;
+        player.bulletCount = 1;
 
     }
 
 
-    /*
-       Skill trên sân tự biến mất
-    */
+    if (
+        player.skillTimers.ultra <= 0
+    ) {
+
+        /*
+           Ultra chỉ hết hiệu lực.
+           Damage sẽ được reset bởi damage timer
+           nếu không còn skill damage.
+        */
+
+    }
+
 
     skills.forEach(
-        (
-            skill,
-            index
-        ) => {
+        (skill, index) => {
 
             skill.life -=
                 16.67 *
@@ -3767,12 +2979,10 @@ function updateSkills(
 
 
             if (
-                skill.life <=
-                0
+                skill.life <= 0
             ) {
 
                 skill.element.remove();
-
 
                 skills.splice(
                     index,
@@ -3794,19 +3004,19 @@ function updateSkills(
    WAVE SYSTEM
 ========================================================= */
 
-function updateWaveSystem(
-    delta
-) {
+function updateWaveSystem(delta) {
 
     if (
-        phase !==
-        "battle"
+        phase !== "battle"
     )
         return;
 
 
     /*
-       Số quái cần đánh
+       Mỗi wave cần một số lượng quái.
+
+       Stage càng cao:
+       số lượng quái càng tăng.
     */
 
     const target =
@@ -3816,12 +3026,11 @@ function updateWaveSystem(
 
 
     /*
-       Spawn enemy
+       Spawn
     */
 
     if (
-        enemies.length <
-        target
+        enemies.length < target
     ) {
 
         spawnTimer +=
@@ -3836,9 +3045,7 @@ function updateWaveSystem(
 
             spawnEnemy();
 
-
-            spawnTimer =
-                0;
+            spawnTimer = 0;
 
         }
 
@@ -3846,15 +3053,17 @@ function updateWaveSystem(
 
 
     /*
-       Wave clear
+       Khi đã tiêu diệt hết wave
     */
 
     if (
-        enemies.length ===
-        0 &&
-        spawnTimer ===
-        0
+        enemies.length === 0 &&
+        spawnTimer === 0
     ) {
+
+        /*
+           Tránh chuyển wave ngay lúc vừa bắt đầu.
+        */
 
         waveClearTimer +=
             16.67 *
@@ -3866,8 +3075,7 @@ function updateWaveSystem(
             1200
         ) {
 
-            waveClearTimer =
-                0;
+            waveClearTimer = 0;
 
 
             if (
@@ -3888,12 +3096,11 @@ function updateWaveSystem(
             else {
 
                 /*
-                   Chỉ Stage 5 mới có Boss
+                   Stage 5 → Boss
                 */
 
                 if (
-                    stage ===
-                    MAX_STAGES
+                    stage === MAX_STAGES
                 ) {
 
                     startBossWarning();
@@ -3902,11 +3109,14 @@ function updateWaveSystem(
 
                 else {
 
+                    /*
+                       Stage 1-4
+                       chuyển màn.
+                    */
+
                     stage++;
 
-                    wave =
-                        1;
-
+                    wave = 1;
 
                     showMessage(
                         `STAGE ${stage}`,
@@ -3925,7 +3135,7 @@ function updateWaveSystem(
 
 
 /* =========================================================
-   BACKGROUND
+   DRAW BACKGROUND
 ========================================================= */
 
 function drawBackground() {
@@ -3943,15 +3153,14 @@ function drawBackground() {
 
 
     /*
-       Cyber Grid
+       Cyber grid
     */
 
     ctx.strokeStyle =
         "rgba(0,255,255,.07)";
 
 
-    const grid =
-        40;
+    const grid = 40;
 
 
     for (
@@ -3962,18 +3171,15 @@ function drawBackground() {
 
         ctx.beginPath();
 
-
         ctx.moveTo(
             x,
             0
         );
 
-
         ctx.lineTo(
             x,
             canvas.height
         );
-
 
         ctx.stroke();
 
@@ -3988,18 +3194,15 @@ function drawBackground() {
 
         ctx.beginPath();
 
-
         ctx.moveTo(
             0,
             y
         );
 
-
         ctx.lineTo(
             canvas.width,
             y
         );
-
 
         ctx.stroke();
 
@@ -4009,7 +3212,7 @@ function drawBackground() {
 
 
 /* =========================================================
-   PLAYER DRAW
+   PLAYER
 ========================================================= */
 
 function drawPlayer() {
@@ -4017,17 +3220,14 @@ function drawPlayer() {
     ctx.save();
 
 
-    ctx.shadowBlur =
-        25;
-
+    ctx.shadowBlur = 25;
 
     ctx.shadowColor =
         "#00ffff";
 
 
     ctx.fillStyle =
-        player.invincible >
-        0
+        player.invincible > 0
             ? "#ffffff"
             : "#00ffff";
 
@@ -4061,7 +3261,6 @@ function drawPlayer() {
 
     ctx.closePath();
 
-
     ctx.fill();
 
 
@@ -4085,9 +3284,7 @@ function drawPet() {
     ctx.save();
 
 
-    ctx.shadowBlur =
-        25;
-
+    ctx.shadowBlur = 25;
 
     ctx.shadowColor =
         "#ff00ff";
@@ -4096,6 +3293,10 @@ function drawPet() {
     ctx.fillStyle =
         "#ff00ff";
 
+
+    /*
+       Pet hình robot mini
+    */
 
     ctx.beginPath();
 
@@ -4163,9 +3364,7 @@ function drawEnemies() {
                     : "#ff0055";
 
 
-            ctx.shadowBlur =
-                20;
-
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 color;
@@ -4213,8 +3412,7 @@ function drawEnemies() {
                HP BAR
             */
 
-            const width =
-                36;
+            const width = 36;
 
 
             ctx.fillStyle =
@@ -4249,7 +3447,6 @@ function drawEnemies() {
                 width *
                 Math.max(
                     0,
-
                     enemy.health /
                     enemy.maxHealth
                 ),
@@ -4279,15 +3476,20 @@ function drawBoss() {
     ctx.save();
 
 
+    /*
+       👹 sticker demon
+
+       Dùng emoji lớn làm hình Boss.
+       Có glow cyber phía sau.
+    */
+
     const color =
         boss.phase === 2
             ? "#ff0055"
             : "#ff00ff";
 
 
-    ctx.shadowBlur =
-        45;
-
+    ctx.shadowBlur = 45;
 
     ctx.shadowColor =
         color;
@@ -4299,7 +3501,6 @@ function drawBoss() {
 
     ctx.textAlign =
         "center";
-
 
     ctx.textBaseline =
         "middle";
@@ -4313,15 +3514,14 @@ function drawBoss() {
 
 
     /*
-       Boss energy ring
+       Vòng năng lượng
     */
 
     ctx.strokeStyle =
         color;
 
 
-    ctx.lineWidth =
-        3;
+    ctx.lineWidth = 3;
 
 
     ctx.beginPath();
@@ -4345,7 +3545,7 @@ function drawBoss() {
 
 
 /* =========================================================
-   BULLET DRAW
+   BULLETS DRAW
 ========================================================= */
 
 function drawBullets() {
@@ -4363,43 +3563,29 @@ function drawBullets() {
             if (
                 bullet.elemental ===
                 "fire"
-            ) {
-
-                color =
-                    "#ff4400";
-
-            }
+            )
+                color = "#ff4400";
 
 
             if (
                 bullet.elemental ===
                 "ice"
-            ) {
-
-                color =
-                    "#66ddff";
-
-            }
+            )
+                color = "#66ddff";
 
 
             if (
                 bullet.elemental ===
                 "thunder"
-            ) {
-
-                color =
-                    "#9d7cff";
-
-            }
+            )
+                color = "#9d7cff";
 
 
             ctx.fillStyle =
                 color;
 
 
-            ctx.shadowBlur =
-                20;
-
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 color;
@@ -4429,7 +3615,7 @@ function drawBullets() {
 
 
 /* =========================================================
-   ENEMY BULLET DRAW
+   ENEMY BULLETS DRAW
 ========================================================= */
 
 function drawEnemyBullets() {
@@ -4444,9 +3630,7 @@ function drawEnemyBullets() {
                 "#ff0055";
 
 
-            ctx.shadowBlur =
-                20;
-
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 "#ff0055";
@@ -4491,9 +3675,7 @@ function drawMissiles() {
                 "#ff5500";
 
 
-            ctx.shadowBlur =
-                20;
-
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 "#ff5500";
@@ -4538,13 +3720,10 @@ function drawLightning() {
                 "#9d7cff";
 
 
-            ctx.lineWidth =
-                4;
+            ctx.lineWidth = 4;
 
 
-            ctx.shadowBlur =
-                20;
-
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 "#9d7cff";
@@ -4614,9 +3793,7 @@ function drawParticles() {
                 particle.color;
 
 
-            ctx.shadowBlur =
-                15;
-
+            ctx.shadowBlur = 15;
 
             ctx.shadowColor =
                 particle.color;
@@ -4660,60 +3837,42 @@ function updateSkillUI() {
         return;
 
 
-    container.innerHTML =
-        "";
+    container.innerHTML = "";
 
 
-    const active =
-        [];
+    const active = [];
 
 
     if (
-        player.skillTimers.speed >
-        0
-    ) {
-
+        player.skillTimers.speed > 0
+    )
         active.push(
             ["⚡", "SPEED"]
         );
 
-    }
-
 
     if (
-        player.skillTimers.rapidFire >
-        0
-    ) {
-
+        player.skillTimers.rapidFire > 0
+    )
         active.push(
             ["🔥", "RAPID"]
         );
 
-    }
-
 
     if (
-        player.bulletCount ===
-        2
-    ) {
-
+        player.bulletCount === 2
+    )
         active.push(
             ["🔫", "DOUBLE"]
         );
 
-    }
-
 
     if (
-        player.bulletCount ===
-        3
-    ) {
-
+        player.bulletCount === 3
+    )
         active.push(
             ["🔫", "TRIPLE"]
         );
-
-    }
 
 
     if (
@@ -4721,26 +3880,17 @@ function updateSkillUI() {
     ) {
 
         const icon =
-            player.elemental ===
-            "fire"
-
+            player.elemental === "fire"
                 ? "🔥"
-
-                : player.elemental ===
-                  "ice"
-
+                : player.elemental === "ice"
                     ? "❄️"
-
                     : "⚡";
 
 
         active.push(
             [
                 icon,
-
-                player
-                    .elemental
-                    .toUpperCase()
+                player.elemental.toUpperCase()
             ]
         );
 
@@ -4748,27 +3898,19 @@ function updateSkillUI() {
 
 
     if (
-        player.skillTimers.ultra >
-        0
-    ) {
-
+        player.skillTimers.ultra > 0
+    )
         active.push(
             ["👑", "ULTRA"]
         );
 
-    }
-
 
     if (
-        player.damage >
-        5
-    ) {
-
+        player.damage > 5
+    )
         active.push(
             ["💥", "DAMAGE"]
         );
-
-    }
 
 
     active.forEach(
@@ -4786,15 +3928,11 @@ function updateSkillUI() {
 
             element.innerHTML = `
 
-                <span
-                    class="active-skill-icon"
-                >
+                <span class="active-skill-icon">
                     ${item[0]}
                 </span>
 
-                <span
-                    class="active-skill-name"
-                >
+                <span class="active-skill-name">
                     ${item[1]}
                 </span>
 
@@ -4809,9 +3947,7 @@ function updateSkillUI() {
     );
 
 
-    if (
-        petStatus
-    ) {
+    if (petStatus) {
 
         petStatus.textContent =
             pet.active
@@ -4829,111 +3965,63 @@ function updateSkillUI() {
 
 function updateUI() {
 
-    if (
-        scoreElement
-    ) {
-
+    if (scoreElement)
         scoreElement.textContent =
             score;
 
-    }
 
-
-    if (
-        waveElement
-    ) {
-
+    if (waveElement)
         waveElement.textContent =
             `S${stage} / W${wave}`;
 
-    }
 
-
-    if (
-        comboElement
-    ) {
-
+    if (comboElement)
         comboElement.textContent =
-            "x" +
-            combo;
-
-    }
+            "x" + combo;
 
 
-    if (
-        healthText
-    ) {
-
+    if (healthText)
         healthText.textContent =
             Math.max(
                 0,
-
                 Math.floor(
                     player.health
                 )
             );
 
-    }
 
-
-    if (
-        healthBar
-    ) {
-
+    if (healthBar)
         healthBar.style.width =
             Math.max(
                 0,
-
                 player.health
-            ) +
-            "%";
-
-    }
+            ) + "%";
 
 
-    if (
-        levelText
-    ) {
-
+    if (levelText)
         levelText.textContent =
             `${difficulty.name} • STAGE ${stage}/5`;
-
-    }
-
-
-    updateSkillUI();
 
 }
 
 
 /* =========================================================
-   END GAME
+   GAME OVER
 ========================================================= */
 
 function endGame() {
 
-    gameRunning =
-        false;
+    gameRunning = false;
 
 
-    if (
-        finalScore
-    ) {
-
+    if (finalScore)
         finalScore.textContent =
             score;
 
-    }
 
-
-    if (
-        finalWave
-    ) {
-
+    if (finalWave)
         finalWave.textContent =
             `STAGE ${stage}`;
-
-    }
 
 
     gameOver.classList.remove(
@@ -4944,7 +4032,7 @@ function endGame() {
 
 
 /* =========================================================
-   COMPLETE GAME
+   GAME COMPLETE
 ========================================================= */
 
 function completeGame() {
@@ -4953,8 +4041,7 @@ function completeGame() {
         "game-complete";
 
 
-    gameRunning =
-        false;
+    gameRunning = false;
 
 
     showMessage(
@@ -4967,13 +4054,9 @@ function completeGame() {
         () => {
 
             alert(
-
                 `🏆 ${difficulty.name} COMPLETE!\n\n` +
-
                 `Score: ${score}\n\n` +
-
                 `Bạn đã đánh bại CYBER DEMON!`
-
             );
 
         },
@@ -4989,51 +4072,36 @@ function completeGame() {
 
 function movePlayer() {
 
-    let dx =
-        0;
-
-    let dy =
-        0;
+    let dx = 0;
+    let dy = 0;
 
 
     if (
         keys["w"] ||
         keys["arrowup"]
-    ) {
-
+    )
         dy--;
-
-    }
 
 
     if (
         keys["s"] ||
         keys["arrowdown"]
-    ) {
-
+    )
         dy++;
-
-    }
 
 
     if (
         keys["a"] ||
         keys["arrowleft"]
-    ) {
-
+    )
         dx--;
-
-    }
 
 
     if (
         keys["d"] ||
         keys["arrowright"]
-    ) {
-
+    )
         dx++;
-
-    }
 
 
     if (
@@ -5048,12 +4116,8 @@ function movePlayer() {
             );
 
 
-        dx /=
-            length;
-
-
-        dy /=
-            length;
+        dx /= length;
+        dy /= length;
 
     }
 
@@ -5101,7 +4165,7 @@ function movePlayer() {
 
 
 /* =========================================================
-   KEYBOARD EVENTS
+   KEYBOARD
 ========================================================= */
 
 document.addEventListener(
@@ -5110,8 +4174,7 @@ document.addEventListener(
 
         keys[
             event.key.toLowerCase()
-        ] =
-            true;
+        ] = true;
 
     }
 );
@@ -5123,15 +4186,14 @@ document.addEventListener(
 
         keys[
             event.key.toLowerCase()
-        ] =
-            false;
+        ] = false;
 
     }
 );
 
 
 /* =========================================================
-   DIFFICULTY BUTTONS
+   DIFFICULTY BUTTON
 ========================================================= */
 
 document
@@ -5157,12 +4219,10 @@ document
 
 
 /* =========================================================
-   RESTART BUTTON
+   RESTART
 ========================================================= */
 
-if (
-    restartButton
-) {
+if (restartButton) {
 
     restartButton.addEventListener(
         "click",
@@ -5171,7 +4231,6 @@ if (
             menu.classList.remove(
                 "hidden"
             );
-
 
             gameOver.classList.add(
                 "hidden"
@@ -5184,42 +4243,32 @@ if (
 
 
 /* =========================================================
-   MAIN GAME LOOP
+   MAIN LOOP
 ========================================================= */
 
-function gameLoop(
-    time
-) {
+function gameLoop(time) {
 
-    if (
-        !gameRunning
-    )
+    if (!gameRunning)
         return;
 
 
     const delta =
         Math.min(
-            (
-                time -
-                lastTime
-            ) /
+            (time - lastTime) /
             16.67,
-
             2
         );
 
 
-    lastTime =
-        time;
+    lastTime = time;
 
 
     /*
-       PLAYER COOLDOWN
+       Player cooldown
     */
 
     if (
-        player.attackCooldown >
-        0
+        player.attackCooldown > 0
     ) {
 
         player.attackCooldown -=
@@ -5229,13 +4278,8 @@ function gameLoop(
     }
 
 
-    /*
-       INVINCIBILITY
-    */
-
     if (
-        player.invincible >
-        0
+        player.invincible > 0
     ) {
 
         player.invincible -=
@@ -5246,7 +4290,7 @@ function gameLoop(
 
 
     /*
-       MOVE
+       Movement
     */
 
     movePlayer();
@@ -5260,95 +4304,74 @@ function gameLoop(
 
 
     /*
-       PET
+       Pet
     */
 
-    updatePet(
-        delta
-    );
+    updatePet(delta);
 
 
     /*
-       WAVE
+       Wave
     */
 
-    updateWaveSystem(
-        delta
-    );
+    updateWaveSystem(delta);
 
 
     /*
-       ENEMIES
+       Enemies
     */
 
-    updateEnemies(
-        delta
-    );
+    updateEnemies(delta);
 
 
     /*
-       BULLETS
+       Bullets
     */
 
-    updateBullets(
-        delta
-    );
+    updateBullets(delta);
 
 
     /*
-       BOSS
+       Boss
     */
 
     if (
-        phase ===
-        "boss"
+        phase === "boss"
     ) {
 
-        updateBoss(
-            delta
-        );
+        updateBoss(delta);
 
     }
 
 
     /*
-       ENEMY BULLETS
+       Enemy bullets
     */
 
-    updateEnemyBullets(
-        delta
-    );
+    updateEnemyBullets(delta);
 
 
     /*
-       MISSILES
+       Missiles
     */
 
-    updateMissiles(
-        delta
-    );
+    updateMissiles(delta);
 
 
     /*
-       EFFECTS
+       Effects
     */
 
-    updateParticles(
-        delta
-    );
-
+    updateParticles(delta);
 
     updateLightning();
 
 
     /*
-       SKILLS
+       Skills
     */
 
-    updateSkills(
-        delta
-    );
-
+    updateSkills(delta);
 
     checkSkillPickup();
 
@@ -5393,7 +4416,7 @@ function gameLoop(
 
 
 /* =========================================================
-   INITIALIZE
+   INIT
 ========================================================= */
 
 createGameUI();
