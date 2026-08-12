@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Cyber Arena</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="game-wrapper">
+
+        <!-- =========================
+             HEADER
+        ========================== -->
+
+        <header class="top-bar">
+
+            <div class="logo">
+                CYBER<span>ARENA</span>
+            </div>
+
+            <div class="stats">
+
+                <div class="stat">
+                    SCORE
+                    <strong id="score">0</strong>
+                </div>
+
+                <div class="stat">
+                    WAVE
+                    <strong id="wave">1</strong>
+                </div>
+
+                <div class="stat">
+                    COMBO
+                    <strong id="combo">x1</strong>
+                </div>
+
+            </div>
+
+        </header>
+
+
+        <!-- =========================
+             GAME AREA
+        ========================== -->
+
+        <div class="game-box">
+
+            <canvas id="gameCanvas"></canvas>
+
+
+            <!-- HUD -->
+
+            <div class="hud">
+
+                <div class="health-container">
+
+                    <span>HP</span>
+
+                    <div class="health-bar">
+                        <div id="healthBar"></div>
+                    </div>
+
+                    <span id="healthText">100</span>
+
+                </div>
+
+                <div id="levelText">
+                    LEVEL 1
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 START MENU
+            ========================== -->
+
+            <div id="menu" class="overlay">
+
+                <div class="menu-card">
+
+                    <div class="cyber-title">
+                        CYBER
+                        <span>ARENA</span>
+                    </div>
+
+                    <p class="subtitle">
+                        ENTER THE DIGITAL BATTLEFIELD
+                    </p>
+
+
+                    <div class="difficulty-title">
+                        CHỌN ĐỘ KHÓ
+                    </div>
+
+
+                    <div class="difficulty-buttons">
+
+                        <button
+                            class="difficulty easy"
+                            data-level="easy">
+                            DỄ
+                        </button>
+
+                        <button
+                            class="difficulty normal"
+                            data-level="normal">
+                            BÌNH THƯỜNG
+                        </button>
+
+                        <button
+                            class="difficulty hard"
+                            data-level="hard">
+                            KHÓ
+                        </button>
+
+                    </div>
+
+
+                    <div class="controls-info">
+
+                        <div>
+                            <b>W A S D</b>
+                            <span>DI CHUYỂN</span>
+                        </div>
+
+                        <div>
+                            <b>SPACE</b>
+                            <span>TẤN CÔNG</span>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 GAME OVER
+            ========================== -->
+
+            <div id="gameOver" class="overlay hidden">
+
+                <div class="menu-card">
+
+                    <div class="game-over-title">
+                        SYSTEM FAILURE
+                    </div>
+
+                    <p>
+                        Bạn đã bị hạ gục.
+                    </p>
+
+                    <div class="result">
+
+                        SCORE:
+                        <strong id="finalScore">0</strong>
+
+                    </div>
+
+                    <div class="result">
+
+                        WAVE:
+                        <strong id="finalWave">1</strong>
+
+                    </div>
+
+                    <button id="restartButton" class="main-button">
+                        CHƠI LẠI
+                    </button>
+
+                </div>
+
+            </div>
+
+
+            <!-- =========================
+                 MOBILE CONTROLS
+            ========================== -->
+
+            <div class="mobile-controls">
+
+                <div class="movement">
+
+                    <button class="move-button up" data-key="ArrowUp">
+                        ▲
+                    </button>
+
+                    <div class="middle-buttons">
+
+                        <button class="move-button" data-key="ArrowLeft">
+                            ◀
+                        </button>
+
+                        <button class="move-button" data-key="ArrowDown">
+                            ▼
+                        </button>
+
+                        <button class="move-button" data-key="ArrowRight">
+                            ▶
+                        </button>
+
+                    </div>
+
+                </div>
+
+
+                <button id="attackButton" class="attack-button">
+                    ⚡
+                    <span>ATTACK</span>
+                </button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>
