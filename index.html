@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Né Vật Cản</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <div class="game-container">
+
+        <!-- Thanh thông tin -->
+        <div class="game-info">
+            <div class="score">
+                Điểm: <span id="score">0</span>
+            </div>
+
+            <div class="lives">
+                ❤️ <span id="lives">3</span>
+            </div>
+        </div>
+
+        <!-- Khu vực game -->
+        <div id="game">
+
+            <!-- Nhân vật -->
+            <div id="player"></div>
+
+            <!-- Vật cản sẽ được JavaScript tạo ở đây -->
+
+        </div>
+
+        <!-- Màn hình bắt đầu -->
+        <div id="start-screen" class="screen">
+            <h1>🎮 NÉ VẬT CẢN</h1>
+
+            <p>Né những vật cản đang rơi xuống!</p>
+
+            <p class="controls">
+                ⬅️ A / ← &nbsp;&nbsp; D / →
+            </p>
+
+            <button id="start-btn">BẮT ĐẦU</button>
+        </div>
+
+        <!-- Màn hình Game Over -->
+        <div id="game-over" class="screen hidden">
+
+            <h1>💀 GAME OVER</h1>
+
+            <p>
+                Điểm của bạn:
+                <strong id="final-score">0</strong>
+            </p>
+
+            <button id="restart-btn">CHƠI LẠI</button>
+
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
