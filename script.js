@@ -1,4424 +1,1859 @@
 /* =========================================================
-   CYBER ARENA
-   3 DIFFICULTIES × 5 STAGES
-   AUTO FIRE + BOSS + PET + SKILL DROP
+   CYBERARENA
+   COMPLETE GAME SCRIPT
    ========================================================= */
 
-const canvas = document.getElementById("gameCanvas");
-const ctx = canvas.getContext("2d");
-
-function resizeCanvas() {
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-}
-
-resizeCanvas();
-window.addEventListener("resize", resizeCanvas);
-
-
-/* =========================================================
-   UI
-========================================================= */
-
-const menu = document.getElementById("menu");
-const gameOver = document.getElementById("gameOver");
-
-const scoreElement = document.getElementById("score");
-const waveElement = document.getElementById("wave");
-const comboElement = document.getElementById("combo");
-
-const healthBar = document.getElementById("healthBar");
-const healthText = document.getElementById("healthText");
-
-const levelText = document.getElementById("levelText");
-
-const finalScore = document.getElementById("finalScore");
-const finalWave = document.getElementById("finalWave");
-
-const restartButton =
-    document.getElementById("restartButton");
-
-
-/* =========================================================
-   GAME SETTINGS
-========================================================= */
-
-const MAX_STAGES = 5;
-const WAVES_PER_STAGE = 3;
-
-
-/*
-    Tỷ lệ rơi vật phẩm theo màn.
-
-    Stage 1 = 2%
-    Stage 2 = 4%
-    Stage 3 = 6%
-    Stage 4 = 8%
-    Stage 5 = 10%
-
-    Boss luôn rơi 1 reward.
-*/
-
-const DROP_RATE = {
-
-    1: 0.02,
-    2: 0.04,
-    3: 0.06,
-    4: 0.08,
-    5: 0.10
-
-};
-
-
-/* =========================================================
-   DIFFICULTY
-========================================================= */
-
-const difficulties = {
-
-    easy: {
-
-        name: "DỄ",
-
-        enemyHP: 20,
-
-        enemySpeed: 0.65,
-
-        enemyDamage: 5,
-
-        enemyCount: 5,
-
-        bossMultiplier: 3,
-
-        bossSpeed: 0.75,
-
-        pet: true
-
-    },
-
-    normal: {
-
-        name: "BÌNH THƯỜNG",
-
-        enemyHP: 30,
-
-        enemySpeed: 0.90,
-
-        enemyDamage: 8,
-
-        enemyCount: 7,
-
-        bossMultiplier: 4,
-
-        bossSpeed: 0.9,
-
-        pet: true
-
-    },
-
-    hard: {
-
-        name: "KHÓ",
-
-        enemyHP: 45,
-
-        enemySpeed: 1.15,
-
-        enemyDamage: 12,
-
-        enemyCount: 9,
-
-        bossMultiplier: 5,
-
-        bossSpeed: 1.05,
-
-        pet: false
-
-    }
-
-};
-
-let difficulty = difficulties.normal;
-
-
-/* =========================================================
-   GAME STATE
-========================================================= */
-
-let gameRunning = false;
-
-let score = 0;
-let combo = 1;
-
-let stage = 1;
-let wave = 1;
-
-let phase = "battle";
-
-/*
-    battle
-    boss-warning
-    boss
-    reward
-    stage-clear
-    game-complete
-*/
-
-let enemies = [];
-let bullets = [];
-let enemyBullets = [];
-let particles = [];
-let missiles = [];
-let lightning = [];
-let skills = [];
-
-let boss = null;
-
-let spawnTimer = 0;
-let waveClearTimer = 0;
-
-let lastTime = 0;
-let lastKillTime = 0;
-
-
-/* =========================================================
-   KEYBOARD
-========================================================= */
-
-let keys = {};
-
-
-/* =========================================================
-   PLAYER
-========================================================= */
-
-const player = {
-
-    x: 0,
-    y: 0,
-
-    size: 28,
-
-    baseSpeed: 4.5,
-    speed: 4.5,
-
-    health: 100,
-    maxHealth: 100,
-
-    damage: 5,
-
-    bulletCount: 1,
-
-    bulletSpeed: 11,
-
-    attackCooldown: 0,
-
-    baseAttackCooldown: 420,
-
-    invincible: 0,
-
-    elemental: null,
-
-    skillTimers: {
-
-        speed: 0,
-
-        rapidFire: 0,
-
-        damage: 0,
-
-        ultra: 0,
-
-        double: 0,
-
-        triple: 0
-
-    }
-
-};
-
-
-/* =========================================================
-   PET
-========================================================= */
-
-let pet = {
-
-    active: false,
-
-    x: 0,
-    y: 0,
-
-    size: 20,
-
-    health: 100,
-
-    maxHealth: 100,
-
-    damage: 5,
-
-    bulletCount: 1,
-
-    attackCooldown: 0,
-
-    orbitAngle: 0,
-
-    elemental: null
-
-};
-
-
-/* =========================================================
-   SKILLS
-========================================================= */
-
-const SKILLS = [
-
-    {
-        id: "bomb",
-        name: "BOM",
-        icon: "💣",
-        chance: 8,
-        color: "#ff5500"
-    },
-
-    {
-        id: "missile",
-        name: "TÊN LỬA",
-        icon: "🚀",
-        chance: 8,
-        color: "#ff3333"
-    },
-
-    {
-        id: "clear",
-        name: "QUÉT SẠCH",
-        icon: "☢️",
-        chance: 4,
-        color: "#ff00ff"
-    },
-
-    {
-        id: "speed",
-        name: "TĂNG TỐC",
-        icon: "⚡",
-        chance: 12,
-        color: "#00ffff"
-    },
-
-    {
-        id: "rapid",
-        name: "RAPID FIRE",
-        icon: "🔥",
-        chance: 18,
-        color: "#ffff00"
-    },
-
-    {
-        id: "double",
-        name: "DOUBLE SHOT",
-        icon: "🔫",
-        chance: 10,
-        color: "#00ff88"
-    },
-
-    {
-        id: "triple",
-        name: "TRIPLE SHOT",
-        icon: "🔫",
-        chance: 7,
-        color: "#00ff88"
-    },
-
-    {
-        id: "thunder",
-        name: "SẤM SÉT",
-        icon: "⚡",
-        chance: 8,
-        color: "#9d7cff"
-    },
-
-    {
-        id: "fire",
-        name: "LỬA",
-        icon: "🔥",
-        chance: 7,
-        color: "#ff4400"
-    },
-
-    {
-        id: "ice",
-        name: "BĂNG",
-        icon: "❄️",
-        chance: 6,
-        color: "#66ddff"
-    },
-
-    {
-        id: "ultra",
-        name: "ULTRA GUN",
-        icon: "👑",
-        chance: 5,
-        color: "#ff00ff"
-    },
-
-    {
-        id: "damage",
-        name: "SUPER DAMAGE",
-        icon: "💥",
-        chance: 7,
-        color: "#ff0055"
-    }
-
-];
-
-
-/* =========================================================
-   START GAME
-========================================================= */
-
-function startGame(level) {
-
-    difficulty = difficulties[level];
-
-    gameRunning = true;
-
-    score = 0;
-
-    combo = 1;
-
-    stage = 1;
-
-    wave = 1;
-
-    phase = "battle";
-
-    enemies = [];
-    bullets = [];
-    enemyBullets = [];
-    particles = [];
-    missiles = [];
-    lightning = [];
-    skills = [];
-
-    boss = null;
-
-    spawnTimer = 0;
-    waveClearTimer = 0;
-
-    player.health = player.maxHealth;
-
-    player.x =
-        canvas.width / 2;
-
-    player.y =
-        canvas.height / 2;
-
-    player.speed =
-        player.baseSpeed;
-
-    player.damage = 5;
-
-    player.bulletCount = 1;
-
-    player.elemental = null;
-
-    player.attackCooldown = 0;
-
-    player.invincible = 0;
-
-
-    Object.keys(
-        player.skillTimers
-    ).forEach(
-        key => {
-
-            player.skillTimers[key] = 0;
-
-        }
-    );
-
-
-    /*
-       Pet chỉ xuất hiện sau boss
-       Easy / Normal.
-    */
-
-    pet.active = false;
-
-    pet.x = player.x + 55;
-    pet.y = player.y;
-    pet.health = pet.maxHealth;
-
-
-    menu.classList.add("hidden");
-    gameOver.classList.add("hidden");
-
-
-    createGameUI();
-
-    updateUI();
-
-
-    showMessage(
-        "STAGE 1",
-        1200
-    );
-
-
-    lastTime =
-        performance.now();
-
-
-    requestAnimationFrame(
-        gameLoop
-    );
-
-}
-
-
-/* =========================================================
-   GAME UI
-========================================================= */
-
-function createGameUI() {
-
-    if (
-        !document.getElementById(
-            "skillPanel"
-        )
-    ) {
-
-        const panel =
-            document.createElement(
-                "div"
-            );
-
-        panel.id =
-            "skillPanel";
-
-        panel.innerHTML = `
-            <div class="skill-title">
-                ACTIVE SKILLS
-            </div>
-
-            <div id="activeSkills"></div>
-
-            <div id="petStatus"></div>
-        `;
-
-
-        document
-            .querySelector(".game-box")
-            .appendChild(panel);
-
-
-        const style =
-            document.createElement(
-                "style"
-            );
-
-        style.textContent = `
-
-            #skillPanel {
-                position:absolute;
-                top:55px;
-                left:20px;
-                z-index:30;
-                pointer-events:none;
-            }
-
-            .skill-title {
-                color:#00ffff;
-                font-size:9px;
-                letter-spacing:2px;
-                text-shadow:0 0 10px #00ffff;
-            }
-
-            #activeSkills {
-                display:flex;
-                gap:5px;
-                margin-top:6px;
-            }
-
-            .active-skill {
-                padding:5px 7px;
-                border:1px solid #00ffff;
-                background:rgba(0,0,20,.85);
-                box-shadow:0 0 12px #00ffff;
-                text-align:center;
-            }
-
-            .active-skill-icon {
-                display:block;
-                font-size:18px;
-            }
-
-            .active-skill-name {
-                font-size:6px;
-                color:white;
-            }
-
-            #petStatus {
-                color:#ff00ff;
-                font-size:9px;
-                margin-top:8px;
-                text-shadow:0 0 10px #ff00ff;
-            }
-
-            .skill-drop {
-                position:absolute;
-                width:58px;
-                height:58px;
-                border-radius:50%;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                background:rgba(0,5,20,.95);
-                border:2px solid;
-                box-shadow:0 0 25px currentColor;
-                font-size:28px;
-                z-index:25;
-                animation:skillPulse .7s infinite alternate;
-            }
-
-            @keyframes skillPulse {
-
-                from {
-                    transform:scale(.85);
-                }
-
-                to {
-                    transform:scale(1.12);
-                }
-
-            }
-
-            .boss-warning {
-                position:absolute;
-                left:50%;
-                top:35%;
-                transform:translate(-50%,-50%);
-                z-index:50;
-                color:#ff0055;
-                font-size:34px;
-                font-weight:bold;
-                letter-spacing:7px;
-                text-shadow:
-                    0 0 10px #ff0055,
-                    0 0 30px #ff0055;
-                animation:warning .5s infinite alternate;
-                pointer-events:none;
-            }
-
-            @keyframes warning {
-
-                from {
-                    opacity:.45;
-                    transform:
-                        translate(-50%,-50%)
-                        scale(.95);
-                }
-
-                to {
-                    opacity:1;
-                    transform:
-                        translate(-50%,-50%)
-                        scale(1.05);
-                }
-
-            }
-
-            .boss-bar {
-                position:absolute;
-                top:18px;
-                left:50%;
-                transform:translateX(-50%);
-                width:55%;
-                z-index:40;
-                pointer-events:none;
-            }
-
-            .boss-name {
-                text-align:center;
-                color:#ff0055;
-                font-weight:bold;
-                letter-spacing:3px;
-                margin-bottom:5px;
-                text-shadow:0 0 15px #ff0055;
-            }
-
-            .boss-health-bg {
-                width:100%;
-                height:14px;
-                border:1px solid #ff0055;
-                background:rgba(255,0,80,.15);
-            }
-
-            .boss-health {
-                height:100%;
-                width:100%;
-                background:#ff0055;
-                box-shadow:0 0 18px #ff0055;
-                transition:width .1s;
-            }
-
-            .round-message {
-                position:absolute;
-                top:45%;
-                left:50%;
-                transform:translate(-50%,-50%);
-                z-index:45;
-                color:#00ffff;
-                text-align:center;
-                font-size:30px;
-                font-weight:bold;
-                letter-spacing:5px;
-                text-shadow:0 0 25px #00ffff;
-                pointer-events:none;
-            }
-
-        `;
-
-        document.head.appendChild(
-            style
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   MESSAGE
-========================================================= */
-
-function showMessage(
-    text,
-    duration = 1000
-) {
-
-    const element =
-        document.createElement(
-            "div"
-        );
-
-    element.className =
-        "round-message";
-
-    element.textContent =
-        text;
-
-
-    document
-        .querySelector(".game-box")
-        .appendChild(element);
-
-
-    setTimeout(
-        () => {
-
-            element.remove();
-
+(() => {
+    "use strict";
+
+    /* =====================================================
+       1. GAME CONFIG
+    ===================================================== */
+
+    const DIFFICULTIES = {
+        easy: {
+            name: "DỄ",
+            enemyHp: 30,
+            enemySpeed: 0.75,
+            enemyDamage: 8,
+            bossMultiplier: 3,
+            dropBonus: 0.10
         },
-        duration
-    );
 
-}
+        normal: {
+            name: "BÌNH THƯỜNG",
+            enemyHp: 45,
+            enemySpeed: 0.95,
+            enemyDamage: 10,
+            bossMultiplier: 4,
+            dropBonus: 0.18
+        },
 
+        hard: {
+            name: "KHÓ",
+            enemyHp: 65,
+            enemySpeed: 1.20,
+            enemyDamage: 14,
+            bossMultiplier: 5,
+            dropBonus: 0.28
+        }
+    };
 
-/* =========================================================
-   SPAWN ENEMY
-========================================================= */
+    const STAGES = 5;
 
-function spawnEnemy() {
+    let difficulty = "normal";
+    let stage = 1;
+
+    let score = 0;
+    let wave = 1;
+    let combo = 1;
+
+    let gameRunning = true;
+    let bossAlive = false;
+
+    let enemies = [];
+    let bullets = [];
+    let enemyBullets = [];
+    let drops = [];
+    let particles = [];
+
+    let keys = {};
+
+    let player;
+    let pet = null;
+
+    let lastTime = performance.now();
+    let enemySpawnTimer = 0;
+    let shootTimer = 0;
+
+    /* =====================================================
+       2. CREATE GAME AREA
+    ===================================================== */
+
+    let arena =
+        document.querySelector("#gameArena") ||
+        document.querySelector(".game-arena") ||
+        document.querySelector("#game") ||
+        document.body;
+
+    arena.style.position = "relative";
+    arena.style.overflow = "hidden";
 
     /*
-       Stage càng cao → enemy càng nhanh.
-
-       Stage 1 = 1.00
-       Stage 2 = 1.12
-       Stage 3 = 1.24
-       Stage 4 = 1.36
-       Stage 5 = 1.48
+       Nếu chưa có game container thì tạo một container riêng.
     */
 
-    const stageSpeed =
-        1 +
-        (stage - 1) *
-        0.12;
+    if (arena === document.body) {
+        arena = document.createElement("div");
+        arena.id = "gameArena";
 
+        Object.assign(arena.style, {
+            position: "fixed",
+            inset: "0",
+            background: "#02040d",
+            overflow: "hidden"
+        });
 
-    const side =
-        Math.floor(
-            Math.random() * 4
-        );
-
-
-    let x;
-    let y;
-
-
-    if (side === 0) {
-
-        x = -30;
-
-        y =
-            Math.random() *
-            canvas.height;
-
+        document.body.appendChild(arena);
     }
 
-    else if (side === 1) {
+    /* =====================================================
+       3. PLAYER
+    ===================================================== */
 
-        x =
-            canvas.width + 30;
+    player = {
+        x: arena.clientWidth / 2,
+        y: arena.clientHeight - 130,
 
-        y =
-            Math.random() *
-            canvas.height;
+        width: 48,
+        height: 58,
 
-    }
+        speed: 5,
 
-    else if (side === 2) {
+        hp: 100,
+        maxHp: 100,
 
-        x =
-            Math.random() *
-            canvas.width;
+        damage: 12,
+        fireRate: 420,
 
-        y = -30;
+        projectileCount: 1,
 
-    }
+        shield: false,
+        speedBoost: 1,
 
-    else {
+        elemental: null,
 
-        x =
-            Math.random() *
-            canvas.width;
+        alive: true
+    };
 
-        y =
-            canvas.height + 30;
+    /* =====================================================
+       4. CREATE PLAYER DOM
+    ===================================================== */
 
-    }
+    const playerElement = document.createElement("div");
 
+    playerElement.id = "player";
 
-    const elite =
-        Math.random() <
-        (0.05 + stage * 0.01);
+    Object.assign(playerElement.style, {
+        position: "absolute",
+        width: "48px",
+        height: "58px",
 
+        transform: "translate(-50%, -50%)",
 
-    const hp =
-        difficulty.enemyHP *
-        (1 + (stage - 1) * 0.15);
+        zIndex: "50",
 
+        pointerEvents: "none",
 
-    enemies.push({
-
-        x,
-        y,
-
-        size:
-            elite ? 30 : 21,
-
-        speed:
-            difficulty.enemySpeed *
-            stageSpeed *
-            (elite ? 1.2 : 1),
-
-        health:
-            hp *
-            (elite ? 2 : 1),
-
-        maxHealth:
-            hp *
-            (elite ? 2 : 1),
-
-        damage:
-            difficulty.enemyDamage *
-            (1 + (stage - 1) * 0.12),
-
-        elite,
-
-        slow: 1
-
+        filter:
+            "drop-shadow(0 0 8px #00ffff) " +
+            "drop-shadow(0 0 18px #00ffff)"
     });
 
-}
-
-
-/* =========================================================
-   UPDATE ENEMIES
-========================================================= */
-
-function updateEnemies(delta) {
-
-    enemies.forEach(
-        enemy => {
-
-            const dx =
-                player.x -
-                enemy.x;
-
-            const dy =
-                player.y -
-                enemy.y;
-
-
-            const distance =
-                Math.hypot(
-                    dx,
-                    dy
-                );
-
-
-            if (distance > 0) {
-
-                enemy.x +=
-                    dx / distance *
-                    enemy.speed *
-                    enemy.slow *
-                    delta;
-
-                enemy.y +=
-                    dy / distance *
-                    enemy.speed *
-                    enemy.slow *
-                    delta;
-
-            }
-
-
-            if (
-                distance <
-                enemy.size +
-                player.size / 2
-            ) {
-
-                damagePlayer(
-                    enemy.damage
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   AUTO FIRE
-========================================================= */
-
-function autoFire() {
-
-    if (!gameRunning)
-        return;
-
-
-    if (
-        phase !== "battle" &&
-        phase !== "boss"
-    ) {
-
-        return;
-
-    }
-
-
-    if (
-        player.attackCooldown > 0
-    ) {
-
-        return;
-
-    }
-
-
-    let target = null;
-
-    let nearest =
-        Infinity;
-
-
-    /*
-       Tìm quái gần nhất
-    */
-
-    enemies.forEach(
-        enemy => {
-
-            const distance =
-                Math.hypot(
-                    enemy.x -
-                    player.x,
-
-                    enemy.y -
-                    player.y
-                );
-
-
-            if (
-                distance <
-                nearest
-            ) {
-
-                nearest = distance;
-
-                target = enemy;
-
-            }
-
-        }
-    );
-
-
-    /*
-       Nếu không còn quái
-       thì bắn boss
-    */
-
-    if (
-        !target &&
-        boss
-    ) {
-
-        target = boss;
-
-    }
-
-
-    if (!target)
-        return;
-
-
-    let cooldown =
-        player.baseAttackCooldown;
-
-
-    if (
-        player.skillTimers.rapidFire >
-        0
-    ) {
-
-        cooldown *= 0.45;
-
-    }
-
-
-    if (
-        player.skillTimers.ultra >
-        0
-    ) {
-
-        cooldown *= 0.18;
-
-    }
-
-
-    player.attackCooldown =
-        cooldown;
-
-
-    let count =
-        player.bulletCount;
-
-
-    if (
-        player.skillTimers.triple > 0
-    ) {
-
-        count = 3;
-
-    }
-
-    else if (
-        player.skillTimers.double > 0
-    ) {
-
-        count = 2;
-
-    }
-
-
-    const angle =
-        Math.atan2(
-            target.y -
-            player.y,
-
-            target.x -
-            player.x
-        );
-
-
-    for (
-        let i = 0;
-        i < count;
-        i++
-    ) {
-
-        let spread = 0;
-
-
-        if (count > 1) {
-
-            spread =
-                (
-                    i -
-                    (count - 1) / 2
-                ) *
-                0.16;
-
-        }
-
-
-        bullets.push({
-
-            x: player.x,
-
-            y: player.y,
-
-            vx:
-                Math.cos(
-                    angle + spread
-                ) *
-                player.bulletSpeed,
-
-            vy:
-                Math.sin(
-                    angle + spread
-                ) *
-                player.bulletSpeed,
-
-            damage:
-                player.damage,
-
-            elemental:
-                player.elemental,
-
-            owner:
-                "player",
-
-            life: 1200
-
-        });
-
-    }
-
-}
-
-
-/* =========================================================
-   PET AUTO FIRE
-========================================================= */
-
-function petAutoFire() {
-
-    if (
-        !pet.active
-    )
-        return;
-
-
-    if (
-        pet.attackCooldown > 0
-    )
-        return;
-
-
-    let target = null;
-
-    let nearest =
-        Infinity;
-
-
-    enemies.forEach(
-        enemy => {
-
-            const distance =
-                Math.hypot(
-                    enemy.x -
-                    pet.x,
-
-                    enemy.y -
-                    pet.y
-                );
-
-
-            if (
-                distance <
-                nearest
-            ) {
-
-                nearest = distance;
-
-                target = enemy;
-
-            }
-
-        }
-    );
-
-
-    if (
-        !target &&
-        boss
-    ) {
-
-        target = boss;
-
-    }
-
-
-    if (!target)
-        return;
-
-
-    pet.attackCooldown =
-        player.baseAttackCooldown;
-
-
-    const angle =
-        Math.atan2(
-            target.y -
-            pet.y,
-
-            target.x -
-            pet.x
-        );
-
-
-    for (
-        let i = 0;
-        i < pet.bulletCount;
-        i++
-    ) {
-
-        let spread = 0;
-
+    playerElement.innerHTML = `
+        <div style="
+            position:absolute;
+            left:12px;
+            top:4px;
+            width:24px;
+            height:24px;
+            background:#00ffff;
+            clip-path:polygon(
+                50% 0%,
+                100% 100%,
+                50% 78%,
+                0% 100%
+            );
+            box-shadow:
+                0 0 8px #00ffff,
+                0 0 20px #00ffff;
+        "></div>
+
+        <div style="
+            position:absolute;
+            left:4px;
+            top:30px;
+            width:40px;
+            height:20px;
+            border:2px solid #00ffff;
+            background:rgba(0,255,255,.12);
+            clip-path:polygon(
+                15% 0,
+                85% 0,
+                100% 100%,
+                0 100%
+            );
+            box-shadow:
+                inset 0 0 10px #00ffff,
+                0 0 10px #00ffff;
+        "></div>
+
+        <div style="
+            position:absolute;
+            left:19px;
+            top:33px;
+            width:10px;
+            height:12px;
+            background:#ff00ff;
+            box-shadow:
+                0 0 8px #ff00ff,
+                0 0 15px #ff00ff;
+        "></div>
+
+        <div style="
+            position:absolute;
+            left:8px;
+            top:51px;
+            width:8px;
+            height:5px;
+            background:#ff00ff;
+            box-shadow:0 0 10px #ff00ff;
+        "></div>
+
+        <div style="
+            position:absolute;
+            right:8px;
+            top:51px;
+            width:8px;
+            height:5px;
+            background:#ff00ff;
+            box-shadow:0 0 10px #ff00ff;
+        "></div>
+    `;
+
+    arena.appendChild(playerElement);
+
+    /* =====================================================
+       5. PLAYER MOVEMENT
+    ===================================================== */
+
+    document.addEventListener("keydown", e => {
+        keys[e.key.toLowerCase()] = true;
 
         if (
-            pet.bulletCount > 1
+            ["arrowup", "arrowdown", "arrowleft", "arrowright", " "]
+                .includes(e.key.toLowerCase())
         ) {
+            e.preventDefault();
+        }
+    });
 
-            spread =
-                (
-                    i -
-                    (pet.bulletCount - 1) / 2
-                ) *
-                0.16;
+    document.addEventListener("keyup", e => {
+        keys[e.key.toLowerCase()] = false;
+    });
 
+    function movePlayer(dt) {
+
+        let speed = player.speed * player.speedBoost;
+
+        if (keys["shift"]) {
+            speed *= 1.35;
         }
 
+        if (keys["arrowleft"] || keys["a"]) {
+            player.x -= speed * dt;
+        }
 
-        bullets.push({
+        if (keys["arrowright"] || keys["d"]) {
+            player.x += speed * dt;
+        }
 
-            x: pet.x,
+        if (keys["arrowup"] || keys["w"]) {
+            player.y -= speed * dt;
+        }
 
-            y: pet.y,
+        if (keys["arrowdown"] || keys["s"]) {
+            player.y += speed * dt;
+        }
 
-            vx:
-                Math.cos(
-                    angle + spread
-                ) *
-                player.bulletSpeed,
+        player.x = Math.max(30, Math.min(arena.clientWidth - 30, player.x));
 
-            vy:
-                Math.sin(
-                    angle + spread
-                ) *
-                player.bulletSpeed,
+        player.y = Math.max(
+            80,
+            Math.min(arena.clientHeight - 40, player.y)
+        );
 
-            damage:
-                pet.damage,
-
-            elemental:
-                pet.elemental,
-
-            owner:
-                "pet",
-
-            life: 1200
-
-        });
-
+        playerElement.style.left = `${player.x}px`;
+        playerElement.style.top = `${player.y}px`;
     }
 
-}
+    /* =====================================================
+       6. AUTO SHOOT
+    ===================================================== */
 
+    function autoShoot(now) {
 
-/* =========================================================
-   UPDATE PET
-========================================================= */
+        if (now - shootTimer < player.fireRate) return;
 
-function updatePet(delta) {
+        shootTimer = now;
 
-    if (
-        !pet.active
-    )
-        return;
+        const count = player.projectileCount;
 
+        if (count === 1) {
+            createBullet(player.x, player.y - 30, 0);
+        }
 
-    /*
-       Pet bay quanh người chơi
-    */
+        else if (count === 2) {
+            createBullet(player.x - 12, player.y - 25, -0.08);
+            createBullet(player.x + 12, player.y - 25, 0.08);
+        }
 
-    pet.orbitAngle +=
-        0.025 * delta;
+        else {
+            createBullet(player.x, player.y - 30, 0);
+            createBullet(player.x - 15, player.y - 22, -0.12);
+            createBullet(player.x + 15, player.y - 22, 0.12);
+        }
+    }
 
+    /* =====================================================
+       7. BULLET
+    ===================================================== */
 
-    const radius = 60;
+    function createBullet(x, y, angle) {
 
+        const element = document.createElement("div");
 
-    const targetX =
-        player.x +
-        Math.cos(
-            pet.orbitAngle
-        ) *
-        radius;
+        Object.assign(element.style, {
+            position: "absolute",
 
+            width: "5px",
+            height: "18px",
 
-    const targetY =
-        player.y +
-        Math.sin(
-            pet.orbitAngle
-        ) *
-        radius;
+            background:
+                player.elemental === "fire"
+                    ? "#ff5500"
+                    : player.elemental === "ice"
+                    ? "#66ddff"
+                    : player.elemental === "thunder"
+                    ? "#ffff00"
+                    : "#00ffff",
 
+            boxShadow:
+                "0 0 8px currentColor," +
+                "0 0 15px currentColor",
 
-    pet.x +=
-        (targetX - pet.x) *
-        0.08 *
-        delta;
+            borderRadius: "5px",
 
-    pet.y +=
-        (targetY - pet.y) *
-        0.08 *
-        delta;
+            zIndex: "30"
+        });
 
+        arena.appendChild(element);
 
-    pet.attackCooldown -=
-        16.67 * delta;
+        bullets.push({
+            x,
+            y,
 
+            vx: Math.sin(angle) * 5,
+            vy: -9,
 
-    petAutoFire();
+            damage: player.damage,
 
-}
+            element
+        });
+    }
 
+    /* =====================================================
+       8. ENEMY
+    ===================================================== */
 
-/* =========================================================
-   BULLET UPDATE
-========================================================= */
+    function createEnemy(isBoss = false) {
 
-function updateBullets(delta) {
+        const config = DIFFICULTIES[difficulty];
 
-    bullets.forEach(
-        (bullet, index) => {
+        const enemy = {
 
-            bullet.x +=
-                bullet.vx *
-                delta;
+            isBoss,
 
-            bullet.y +=
-                bullet.vy *
-                delta;
+            x:
+                50 +
+                Math.random() *
+                Math.max(100, arena.clientWidth - 100),
 
+            y: -50,
 
-            bullet.life -=
-                16.67 *
-                delta;
+            width: isBoss ? 100 : 42,
+            height: isBoss ? 100 : 42,
 
+            hp:
+                isBoss
+                    ? config.enemyHp * config.bossMultiplier
+                    : config.enemyHp,
 
-            if (
-                bullet.life <= 0
-            ) {
+            maxHp:
+                isBoss
+                    ? config.enemyHp * config.bossMultiplier
+                    : config.enemyHp,
 
-                bullets.splice(
-                    index,
-                    1
-                );
+            speed:
+                config.enemySpeed *
+                (1 + (stage - 1) * 0.08),
 
-                return;
+            damage: config.enemyDamage,
 
-            }
+            element: null,
 
+            dom: null,
+
+            hitFlash: 0
+        };
+
+        /* ===============================
+           ENEMY VISUAL
+        =============================== */
+
+        const el = document.createElement("div");
+
+        el.className = "enemy";
+
+        Object.assign(el.style, {
+            position: "absolute",
+
+            width: `${enemy.width}px`,
+            height: `${enemy.height}px`,
+
+            transform: "translate(-50%, -50%)",
+
+            zIndex: "20",
+
+            filter: isBoss
+                ? "drop-shadow(0 0 10px #ff0055) drop-shadow(0 0 30px #ff0055)"
+                : "drop-shadow(0 0 7px #ff0066)"
+        });
+
+        if (isBoss) {
 
             /*
-               Boss
+                BOSS HÌNH STICKER QUỶ
             */
 
-            if (boss) {
+            el.innerHTML = `
+                <div style="
+                    position:absolute;
+                    inset:5px;
+                    background:#ff1744;
+                    border:4px solid #ff0055;
+                    border-radius:45% 45% 40% 40%;
+                    box-shadow:
+                        inset 0 0 20px #7a001f,
+                        0 0 20px #ff0055;
+                ">
 
-                const distance =
-                    Math.hypot(
-                        bullet.x -
-                        boss.x,
+                    <div style="
+                        position:absolute;
+                        left:15px;
+                        top:25px;
+                        width:18px;
+                        height:10px;
+                        background:#ffff00;
+                        transform:rotate(20deg);
+                        box-shadow:0 0 10px #ffff00;
+                    "></div>
 
-                        bullet.y -
-                        boss.y
+                    <div style="
+                        position:absolute;
+                        right:15px;
+                        top:25px;
+                        width:18px;
+                        height:10px;
+                        background:#ffff00;
+                        transform:rotate(-20deg);
+                        box-shadow:0 0 10px #ffff00;
+                    "></div>
+
+                    <div style="
+                        position:absolute;
+                        left:30px;
+                        bottom:22px;
+                        width:34px;
+                        height:14px;
+                        border-bottom:4px solid #12000a;
+                        border-radius:50%;
+                    "></div>
+
+                    <div style="
+                        position:absolute;
+                        left:3px;
+                        top:-18px;
+                        width:28px;
+                        height:38px;
+                        background:#ff1744;
+                        clip-path:polygon(0 100%, 30% 0, 100% 70%);
+                        border:2px solid #ff0055;
+                    "></div>
+
+                    <div style="
+                        position:absolute;
+                        right:3px;
+                        top:-18px;
+                        width:28px;
+                        height:38px;
+                        background:#ff1744;
+                        clip-path:polygon(100% 100%, 70% 0, 0 70%);
+                        border:2px solid #ff0055;
+                    "></div>
+                </div>
+            `;
+
+        } else {
+
+            el.innerHTML = `
+                <div style="
+                    position:absolute;
+                    inset:5px;
+
+                    background:
+                        radial-gradient(
+                            circle at 35% 35%,
+                            #ff66aa,
+                            #8a004d 45%,
+                            #300020
+                        );
+
+                    border:2px solid #ff00aa;
+
+                    clip-path:polygon(
+                        50% 0,
+                        90% 20%,
+                        100% 60%,
+                        75% 100%,
+                        25% 100%,
+                        0 60%,
+                        10% 20%
                     );
+                "></div>
 
+                <div style="
+                    position:absolute;
+                    left:11px;
+                    top:16px;
+                    width:7px;
+                    height:7px;
+                    background:#00ffff;
+                    box-shadow:0 0 8px #00ffff;
+                "></div>
+
+                <div style="
+                    position:absolute;
+                    right:11px;
+                    top:16px;
+                    width:7px;
+                    height:7px;
+                    background:#00ffff;
+                    box-shadow:0 0 8px #00ffff;
+                "></div>
+            `;
+        }
+
+        arena.appendChild(el);
+
+        enemy.dom = el;
+
+        enemies.push(enemy);
+    }
+
+    /* =====================================================
+       9. UPDATE ENEMIES
+    ===================================================== */
+
+    function updateEnemies(dt) {
+
+        for (let i = enemies.length - 1; i >= 0; i--) {
+
+            const enemy = enemies[i];
+
+            /*
+               Boss hơi di chuyển ngang
+            */
+
+            if (enemy.isBoss) {
+                enemy.x +=
+                    Math.sin(performance.now() / 600) *
+                    0.8 *
+                    dt;
+            }
+
+            enemy.y += enemy.speed * dt;
+
+            enemy.dom.style.left = `${enemy.x}px`;
+            enemy.dom.style.top = `${enemy.y}px`;
+
+            /*
+               Enemy chạm player
+            */
+
+            const distance = Math.hypot(
+                enemy.x - player.x,
+                enemy.y - player.y
+            );
+
+            if (distance < (enemy.isBoss ? 65 : 35)) {
+
+                damagePlayer(enemy.damage);
+
+                destroyEnemy(i);
+
+                continue;
+            }
+
+            /*
+               Boss không biến mất khi đi xuống
+            */
+
+            if (!enemy.isBoss && enemy.y > arena.clientHeight + 60) {
+
+                damagePlayer(5);
+
+                destroyEnemy(i);
+            }
+        }
+    }
+
+    /* =====================================================
+       10. BULLETS UPDATE
+    ===================================================== */
+
+    function updateBullets(dt) {
+
+        for (let i = bullets.length - 1; i >= 0; i--) {
+
+            const bullet = bullets[i];
+
+            bullet.x += bullet.vx * dt;
+            bullet.y += bullet.vy * dt;
+
+            bullet.element.style.left =
+                `${bullet.x - 2}px`;
+
+            bullet.element.style.top =
+                `${bullet.y}px`;
+
+            let hit = false;
+
+            for (let j = enemies.length - 1; j >= 0; j--) {
+
+                const enemy = enemies[j];
+
+                const distance = Math.hypot(
+                    bullet.x - enemy.x,
+                    bullet.y - enemy.y
+                );
 
                 if (
                     distance <
-                    boss.size
+                    (enemy.isBoss ? 55 : 27)
                 ) {
 
-                    hitBoss(
-                        bullet.damage,
-                        bullet.elemental
-                    );
+                    hitEnemy(enemy, bullet.damage);
 
+                    destroyBullet(i);
 
-                    bullet.life = 0;
+                    hit = true;
 
-                    return;
-
+                    break;
                 }
-
             }
-
-
-            /*
-               Enemy
-            */
-
-            enemies.forEach(
-                enemy => {
-
-                    const distance =
-                        Math.hypot(
-                            bullet.x -
-                            enemy.x,
-
-                            bullet.y -
-                            enemy.y
-                        );
-
-
-                    if (
-                        distance <
-                        enemy.size + 6
-                    ) {
-
-                        hitEnemy(
-                            enemy,
-                            bullet
-                        );
-
-
-                        bullet.life = 0;
-
-                    }
-
-                }
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   HIT ENEMY
-========================================================= */
-
-function hitEnemy(
-    enemy,
-    bullet
-) {
-
-    let damage =
-        bullet.damage;
-
-
-    if (
-        bullet.elemental ===
-        "thunder"
-    ) {
-
-        damage *= 2.5;
-
-        createLightning(
-            enemy.x,
-            enemy.y
-        );
-
-    }
-
-
-    if (
-        bullet.elemental ===
-        "fire"
-    ) {
-
-        damage *= 1.8;
-
-        createExplosion(
-            enemy.x,
-            enemy.y,
-            "#ff4400",
-            8
-        );
-
-    }
-
-
-    if (
-        bullet.elemental ===
-        "ice"
-    ) {
-
-        damage *= 1.2;
-
-        enemy.slow = 0.45;
-
-    }
-
-
-    enemy.health -=
-        damage;
-
-
-    if (
-        enemy.health <= 0
-    ) {
-
-        killEnemy(
-            enemy
-        );
-
-    }
-
-}
-
-
-/* =========================================================
-   KILL ENEMY
-========================================================= */
-
-function killEnemy(enemy) {
-
-    const index =
-        enemies.indexOf(enemy);
-
-
-    if (
-        index === -1
-    )
-        return;
-
-
-    enemies.splice(
-        index,
-        1
-    );
-
-
-    score +=
-        enemy.elite
-            ? 250
-            : 100;
-
-
-    /*
-       Tỷ lệ phụ thuộc màn.
-    */
-
-    const chance =
-        DROP_RATE[stage];
-
-
-    if (
-        Math.random() <
-        chance
-    ) {
-
-        dropSkill(
-            enemy.x,
-            enemy.y
-        );
-
-    }
-
-
-    const now =
-        Date.now();
-
-
-    if (
-        now -
-        lastKillTime <
-        2500
-    ) {
-
-        combo++;
-
-    }
-
-    else {
-
-        combo = 1;
-
-    }
-
-
-    lastKillTime =
-        now;
-
-
-    createExplosion(
-        enemy.x,
-        enemy.y,
-
-        enemy.elite
-            ? "#ffff00"
-            : "#ff0055",
-
-        enemy.elite
-            ? 25
-            : 12
-    );
-
-}
-
-
-/* =========================================================
-   SKILL DROP
-========================================================= */
-
-function getRandomSkill() {
-
-    let total = 0;
-
-
-    SKILLS.forEach(
-        skill => {
-
-            total +=
-                skill.chance;
-
-        }
-    );
-
-
-    let random =
-        Math.random() *
-        total;
-
-
-    for (
-        const skill of SKILLS
-    ) {
-
-        random -=
-            skill.chance;
-
-
-        if (
-            random <= 0
-        ) {
-
-            return skill;
-
-        }
-
-    }
-
-
-    return SKILLS[0];
-
-}
-
-
-function dropSkill(
-    x,
-    y
-) {
-
-    const skill =
-        getRandomSkill();
-
-
-    const element =
-        document.createElement(
-            "div"
-        );
-
-
-    element.className =
-        "skill-drop";
-
-
-    element.textContent =
-        skill.icon;
-
-
-    element.style.left =
-        (x - 29) + "px";
-
-
-    element.style.top =
-        (y - 29) + "px";
-
-
-    element.style.color =
-        skill.color;
-
-
-    element.style.borderColor =
-        skill.color;
-
-
-    document
-        .querySelector(".game-box")
-        .appendChild(element);
-
-
-    skills.push({
-
-        x,
-        y,
-
-        type: skill,
-
-        element,
-
-        life: 12000
-
-    });
-
-}
-
-
-/* =========================================================
-   SKILL PICKUP
-========================================================= */
-
-function checkSkillPickup() {
-
-    skills.forEach(
-        (skill, index) => {
-
-            const distance =
-                Math.hypot(
-                    player.x -
-                    skill.x,
-
-                    player.y -
-                    skill.y
-                );
-
 
             if (
-                distance < 45
-            ) {
-
-                activateSkill(
-                    skill.type
-                );
-
-
-                skill.element.remove();
-
-
-                skills.splice(
-                    index,
-                    1
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   ACTIVATE SKILL
-========================================================= */
-
-function activateSkill(skill) {
-
-    switch (
-        skill.id
-    ) {
-
-        case "bomb":
-
-            enemies.forEach(
-                enemy => {
-
-                    enemy.health -= 20;
-
-                    createExplosion(
-                        enemy.x,
-                        enemy.y,
-                        "#ff5500",
-                        15
-                    );
-
-                }
-            );
-
-            break;
-
-
-        case "missile":
-
-            launchMissiles();
-
-            break;
-
-
-        case "clear":
-
-            enemies.forEach(
-                enemy => {
-
-                    createExplosion(
-                        enemy.x,
-                        enemy.y,
-                        "#ff00ff",
-                        20
-                    );
-
-                }
-            );
-
-            score +=
-                enemies.length *
-                100;
-
-            enemies = [];
-
-            break;
-
-
-        case "speed":
-
-            player.speed =
-                player.baseSpeed *
-                1.8;
-
-            player.skillTimers.speed =
-                10000;
-
-            break;
-
-
-        case "rapid":
-
-            player.skillTimers.rapidFire =
-                12000;
-
-            break;
-
-
-        case "double":
-
-            player.bulletCount = 2;
-
-            player.skillTimers.double =
-                15000;
-
-            break;
-
-
-        case "triple":
-
-            player.bulletCount = 3;
-
-            player.skillTimers.triple =
-                15000;
-
-            break;
-
-
-        case "thunder":
-
-            player.elemental =
-                "thunder";
-
-            player.skillTimers.damage =
-                15000;
-
-            break;
-
-
-        case "fire":
-
-            player.elemental =
-                "fire";
-
-            player.skillTimers.damage =
-                15000;
-
-            break;
-
-
-        case "ice":
-
-            player.elemental =
-                "ice";
-
-            player.skillTimers.damage =
-                15000;
-
-            break;
-
-
-        case "ultra":
-
-            player.skillTimers.ultra =
-                12000;
-
-            player.damage = 15;
-
-            break;
-
-
-        case "damage":
-
-            player.damage = 12;
-
-            player.skillTimers.damage =
-                15000;
-
-            break;
-
-    }
-
-
-    /*
-       Pet copy skill.
-       Pet luôn tương đương sức mạnh hiện tại
-       của player.
-    */
-
-    syncPetPower();
-
-    updateSkillUI();
-
-}
-
-
-/* =========================================================
-   PET COPY PLAYER POWER
-========================================================= */
-
-function syncPetPower() {
-
-    if (
-        !pet.active
-    )
-        return;
-
-
-    pet.damage =
-        player.damage;
-
-
-    pet.bulletCount =
-        player.bulletCount;
-
-
-    pet.elemental =
-        player.elemental;
-
-}
-
-
-/* =========================================================
-   MISSILES
-========================================================= */
-
-function launchMissiles() {
-
-    enemies
-        .slice(0, 6)
-        .forEach(
-            target => {
-
-                missiles.push({
-
-                    x: player.x,
-
-                    y: player.y,
-
-                    target,
-
-                    speed: 7,
-
-                    damage:
-                        player.damage *
-                        3
-
-                });
-
-            }
-        );
-
-}
-
-
-function updateMissiles(delta) {
-
-    missiles.forEach(
-        (missile, index) => {
-
-            if (
-                !enemies.includes(
-                    missile.target
+                !hit &&
+                (
+                    bullet.y < -30 ||
+                    bullet.x < -30 ||
+                    bullet.x > arena.clientWidth + 30
                 )
             ) {
-
-                missiles.splice(
-                    index,
-                    1
-                );
-
-                return;
-
+                destroyBullet(i);
             }
+        }
+    }
 
+    /* =====================================================
+       11. HIT ENEMY
+    ===================================================== */
 
-            const target =
-                missile.target;
+    function hitEnemy(enemy, damage) {
 
+        enemy.hp -= damage;
 
-            const dx =
-                target.x -
-                missile.x;
+        createHitEffect(
+            enemy.x,
+            enemy.y
+        );
 
-            const dy =
-                target.y -
-                missile.y;
+        if (enemy.hp <= 0) {
 
+            const index = enemies.indexOf(enemy);
 
-            const distance =
-                Math.hypot(
-                    dx,
-                    dy
-                );
+            if (index !== -1) {
 
+                if (enemy.isBoss) {
 
-            if (
-                distance < 15
-            ) {
+                    bossDefeated();
 
-                target.health -=
-                    missile.damage;
+                } else {
 
+                    score += 10 * combo;
 
-                createExplosion(
-                    target.x,
-                    target.y,
-                    "#ff5500",
-                    20
-                );
-
-
-                if (
-                    target.health <= 0
-                ) {
-
-                    killEnemy(
-                        target
+                    combo = Math.min(
+                        combo + 0.1,
+                        5
                     );
 
+                    maybeDropItem(
+                        enemy.x,
+                        enemy.y
+                    );
                 }
 
-
-                missiles.splice(
-                    index,
-                    1
-                );
-
-                return;
-
+                destroyEnemy(index);
             }
-
-
-            missile.x +=
-                dx / distance *
-                missile.speed *
-                delta;
-
-
-            missile.y +=
-                dy / distance *
-                missile.speed *
-                delta;
-
         }
-    );
+    }
 
-}
+    /* =====================================================
+       12. DESTROY ENEMY
+    ===================================================== */
 
+    function destroyEnemy(index) {
 
-/* =========================================================
-   BOSS
-========================================================= */
+        const enemy = enemies[index];
 
-function startBossWarning() {
+        if (!enemy) return;
 
-    phase =
-        "boss-warning";
+        if (enemy.dom) {
+            enemy.dom.remove();
+        }
 
+        enemies.splice(index, 1);
+    }
 
-    const warning =
-        document.createElement(
-            "div"
+    /* =====================================================
+       13. DESTROY BULLET
+    ===================================================== */
+
+    function destroyBullet(index) {
+
+        if (!bullets[index]) return;
+
+        bullets[index].element.remove();
+
+        bullets.splice(index, 1);
+    }
+
+    /* =====================================================
+       14. DAMAGE PLAYER
+    ===================================================== */
+
+    function damagePlayer(amount) {
+
+        if (!player.alive) return;
+
+        if (player.shield) return;
+
+        player.hp -= amount;
+
+        createHitEffect(
+            player.x,
+            player.y
         );
 
+        updateHUD();
 
-    warning.className =
-        "boss-warning";
+        if (player.hp <= 0) {
 
+            player.hp = 0;
 
-    warning.textContent =
-        "⚠ BOSS INCOMING ⚠";
+            gameOver();
+        }
+    }
 
+    /* =====================================================
+       15. DROP SYSTEM
+    ===================================================== */
 
-    document
-        .querySelector(".game-box")
-        .appendChild(warning);
+    const ITEMS = [
 
-
-    setTimeout(
-        () => {
-
-            warning.remove();
-
-            spawnBoss();
-
+        {
+            name: "BOM",
+            chance: 10,
+            color: "#ff3355"
         },
-        2000
-    );
 
-}
+        {
+            name: "TÊN LỬA",
+            chance: 10,
+            color: "#ff7700"
+        },
 
+        {
+            name: "QUÉT SẠCH",
+            chance: 5,
+            color: "#ffffff"
+        },
 
-function spawnBoss() {
+        {
+            name: "TĂNG TỐC",
+            chance: 15,
+            color: "#00ff88"
+        },
 
-    phase =
-        "boss";
+        {
+            name: "TĂNG TỐC BẮN",
+            chance: 20,
+            color: "#00ffff"
+        },
 
+        {
+            name: "2 ĐẠN",
+            chance: 10,
+            color: "#66ffff"
+        },
 
-    /*
-       Boss máu dựa trực tiếp
-       trên máu quái thường.
+        {
+            name: "3 ĐẠN",
+            chance: 5,
+            color: "#aa66ff"
+        },
 
-       Easy   = 3×
-       Normal = 4×
-       Hard   = 5×
-    */
+        {
+            name: "ULTRA GUN",
+            chance: 10,
+            color: "#ff00ff"
+        },
 
-    const normalEnemyHP =
-        difficulty.enemyHP *
-        (
-            1 +
-            (stage - 1) *
-            0.15
-        );
+        {
+            name: "SẤM SÉT",
+            chance: 8,
+            color: "#ffff00"
+        },
 
+        {
+            name: "LỬA",
+            chance: 6,
+            color: "#ff5500"
+        },
 
-    const bossHP =
-        normalEnemyHP *
-        difficulty.bossMultiplier;
-
-
-    boss = {
-
-        x:
-            canvas.width / 2,
-
-        y:
-            100,
-
-        size: 70,
-
-        health:
-            bossHP,
-
-        maxHealth:
-            bossHP,
-
-        speed:
-            difficulty.bossSpeed *
-            (
-                1 +
-                (stage - 1) *
-                0.10
-            ),
-
-        phase: 1,
-
-        attackTimer: 900,
-
-        spawnTimer: 2500,
-
-        name:
-            "CYBER DEMON",
-
-        emoji:
-            "👹"
-
-    };
-
-
-    createBossBar();
-
-
-    showMessage(
-        "👹 CYBER DEMON",
-        1800
-    );
-
-}
-
-
-/* =========================================================
-   BOSS UPDATE
-========================================================= */
-
-function updateBoss(delta) {
-
-    if (!boss)
-        return;
-
-
-    const dx =
-        player.x -
-        boss.x;
-
-    const dy =
-        player.y -
-        boss.y;
-
-
-    const distance =
-        Math.hypot(
-            dx,
-            dy
-        );
-
+        {
+            name: "BĂNG",
+            chance: 6,
+            color: "#66ddff"
+        }
+    ];
 
     /*
-       Boss không lao sát player
+       Tổng tỷ lệ cơ bản thấp.
+       Mỗi stage tăng nhẹ.
     */
 
-    if (
-        distance > 190
-    ) {
+    function getDropChance() {
 
-        boss.x +=
-            dx / distance *
-            boss.speed *
-            delta;
+        const config = DIFFICULTIES[difficulty];
 
-        boss.y +=
-            dy / distance *
-            boss.speed *
-            delta;
+        let base = 12;
 
+        base += (stage - 1) * 4;
+
+        base += config.dropBonus * 100;
+
+        return Math.min(base, 35);
     }
 
+    function maybeDropItem(x, y) {
 
-    /*
-       Phase 2
-    */
+        const chance = getDropChance();
 
-    if (
-        boss.health <=
-        boss.maxHealth * .5 &&
-        boss.phase === 1
-    ) {
-
-        boss.phase = 2;
-
-        boss.speed *= 1.5;
-
-
-        showMessage(
-            "👹 ENRAGED",
-            1200
-        );
-
-
-        createExplosion(
-            boss.x,
-            boss.y,
-            "#ff0055",
-            60
-        );
-
-    }
-
-
-    boss.attackTimer -=
-        16.67 * delta;
-
-
-    if (
-        boss.attackTimer <= 0
-    ) {
-
-        bossAttack();
-
-
-        boss.attackTimer =
-            boss.phase === 1
-                ? 1000
-                : 500;
-
-    }
-
-
-    boss.spawnTimer -=
-        16.67 * delta;
-
-
-    if (
-        boss.spawnTimer <= 0
-    ) {
-
-        spawnEnemy();
-
-
-        if (
-            boss.phase === 2
-        ) {
-
-            spawnEnemy();
-
-            spawnEnemy();
-
+        if (Math.random() * 100 > chance) {
+            return;
         }
 
-
-        boss.spawnTimer =
-            boss.phase === 1
-                ? 3000
-                : 1500;
-
-    }
-
-
-    if (
-        distance <
-        boss.size +
-        player.size
-    ) {
-
-        damagePlayer(
-            20
-        );
-
-    }
-
-
-    updateBossHealth();
-
-}
-
-
-/* =========================================================
-   BOSS ATTACK
-========================================================= */
-
-function bossAttack() {
-
-    const angle =
-        Math.atan2(
-            player.y -
-            boss.y,
-
-            player.x -
-            boss.x
-        );
-
-
-    const count =
-        boss.phase === 1
-            ? 5
-            : 9;
-
-
-    for (
-        let i = 0;
-        i < count;
-        i++
-    ) {
-
-        const spread =
-            (
-                i -
-                (count - 1) / 2
-            ) *
-            .11;
-
-
-        enemyBullets.push({
-
-            x: boss.x,
-
-            y: boss.y,
-
-            vx:
-                Math.cos(
-                    angle + spread
-                ) * 4.5,
-
-            vy:
-                Math.sin(
-                    angle + spread
-                ) * 4.5,
-
-            life: 2500
-
-        });
-
-    }
-
-
-    createExplosion(
-        boss.x,
-        boss.y,
-        "#ff0055",
-        12
-    );
-
-}
-
-
-/* =========================================================
-   BOSS HIT
-========================================================= */
-
-function hitBoss(
-    damage,
-    elemental
-) {
-
-    if (!boss)
-        return;
-
-
-    let finalDamage =
-        damage;
-
-
-    if (
-        elemental === "thunder"
-    ) {
-
-        finalDamage *= 2.5;
-
-        createLightning(
-            boss.x,
-            boss.y
-        );
-
-    }
-
-
-    if (
-        elemental === "fire"
-    ) {
-
-        finalDamage *= 1.8;
-
-        createExplosion(
-            boss.x,
-            boss.y,
-            "#ff4400",
-            8
-        );
-
-    }
-
-
-    if (
-        elemental === "ice"
-    ) {
-
-        finalDamage *= 1.2;
-
-    }
-
-
-    boss.health -=
-        finalDamage;
-
-
-    if (
-        boss.health <= 0
-    ) {
-
-        killBoss();
-
-    }
-
-}
-
-
-/* =========================================================
-   KILL BOSS
-========================================================= */
-
-function killBoss() {
-
-    phase =
-        "reward";
-
-
-    score +=
-        2000 *
-        stage;
-
-
-    createExplosion(
-        boss.x,
-        boss.y,
-        "#ff00ff",
-        100
-    );
-
-
-    /*
-       Boss luôn cho 1 skill
-    */
-
-    dropSkill(
-        boss.x,
-        boss.y
-    );
-
-
-    /*
-       Easy / Normal:
-       nhận Pet sau boss.
-
-       Hard:
-       không pet.
-    */
-
-    if (
-        difficulty.pet
-    ) {
-
-        pet.active = true;
-
-        pet.x =
-            player.x + 60;
-
-        pet.y =
-            player.y;
-
-
-        syncPetPower();
-
-
-        showMessage(
-            "🐾 PET UNLOCKED!",
-            1800
-        );
-
-    }
-
-
-    const bossBar =
-        document.getElementById(
-            "bossBar"
-        );
-
-
-    if (bossBar)
-        bossBar.remove();
-
-
-    boss = null;
-
-
-    /*
-       Nếu đã là Stage 5
-    */
-
-    if (
-        stage >= MAX_STAGES
-    ) {
-
-        completeGame();
-
-        return;
-
-    }
-
-
-    /*
-       Sang màn tiếp theo
-    */
-
-    setTimeout(
-        () => {
-
-            stage++;
-
-            wave = 1;
-
-            phase = "battle";
-
-            enemies = [];
-
-            enemyBullets = [];
-
-            spawnTimer = 0;
-
-
-            showMessage(
-                `STAGE ${stage}`,
-                1500
+        const totalWeight =
+            ITEMS.reduce(
+                (sum, item) => sum + item.chance,
+                0
             );
 
-        },
-        2500
-    );
+        let random =
+            Math.random() * totalWeight;
 
-}
+        let selected = ITEMS[0];
 
+        for (const item of ITEMS) {
 
-/* =========================================================
-   BOSS BAR
-========================================================= */
+            random -= item.chance;
 
-function createBossBar() {
-
-    const old =
-        document.getElementById(
-            "bossBar"
-        );
-
-
-    if (old)
-        old.remove();
-
-
-    const bar =
-        document.createElement(
-            "div"
-        );
-
-
-    bar.id =
-        "bossBar";
-
-
-    bar.className =
-        "boss-bar";
-
-
-    bar.innerHTML = `
-
-        <div class="boss-name">
-            👹 CYBER DEMON
-        </div>
-
-        <div class="boss-health-bg">
-
-            <div
-                id="bossHealth"
-                class="boss-health"
-            ></div>
-
-        </div>
-
-    `;
-
-
-    document
-        .querySelector(".game-box")
-        .appendChild(bar);
-
-}
-
-
-function updateBossHealth() {
-
-    if (!boss)
-        return;
-
-
-    const bar =
-        document.getElementById(
-            "bossHealth"
-        );
-
-
-    if (!bar)
-        return;
-
-
-    bar.style.width =
-        Math.max(
-            0,
-            boss.health /
-            boss.maxHealth *
-            100
-        ) + "%";
-
-}
-
-
-/* =========================================================
-   ENEMY BULLETS
-========================================================= */
-
-function updateEnemyBullets(delta) {
-
-    enemyBullets.forEach(
-        (bullet, index) => {
-
-            bullet.x +=
-                bullet.vx *
-                delta;
-
-            bullet.y +=
-                bullet.vy *
-                delta;
-
-
-            bullet.life -=
-                16.67 *
-                delta;
-
-
-            const distance =
-                Math.hypot(
-                    bullet.x -
-                    player.x,
-
-                    bullet.y -
-                    player.y
-                );
-
-
-            if (
-                distance < 16
-            ) {
-
-                damagePlayer(
-                    8 +
-                    stage
-                );
-
-
-                bullet.life = 0;
-
+            if (random <= 0) {
+                selected = item;
+                break;
             }
-
-
-            if (
-                bullet.life <= 0
-            ) {
-
-                enemyBullets.splice(
-                    index,
-                    1
-                );
-
-            }
-
         }
-    );
 
-}
-
-
-/* =========================================================
-   PLAYER DAMAGE
-========================================================= */
-
-function damagePlayer(amount) {
-
-    if (
-        player.invincible > 0
-    )
-        return;
-
-
-    player.health -=
-        amount;
-
-
-    player.invincible =
-        700;
-
-
-    createExplosion(
-        player.x,
-        player.y,
-        "#ff0055",
-        15
-    );
-
-
-    if (
-        player.health <= 0
-    ) {
-
-        endGame();
-
+        createDrop(
+            x,
+            y,
+            selected
+        );
     }
 
-}
+    /* =====================================================
+       16. CREATE DROP
+    ===================================================== */
 
+    function createDrop(x, y, item) {
 
-/* =========================================================
-   PARTICLES
-========================================================= */
+        const el = document.createElement("div");
 
-function createExplosion(
-    x,
-    y,
-    color,
-    amount
-) {
+        Object.assign(el.style, {
 
-    for (
-        let i = 0;
-        i < amount;
-        i++
-    ) {
+            position: "absolute",
 
-        const angle =
-            Math.random() *
-            Math.PI *
-            2;
+            left: `${x}px`,
+            top: `${y}px`,
 
+            width: "34px",
+            height: "34px",
 
-        const speed =
-            Math.random() *
-            5 + 1;
+            transform: "translate(-50%, -50%)",
 
+            border: `2px solid ${item.color}`,
 
-        particles.push({
+            color: item.color,
+
+            background: "rgba(0,0,0,.7)",
+
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+
+            fontSize: "8px",
+            fontWeight: "bold",
+
+            textAlign: "center",
+
+            borderRadius: "8px",
+
+            boxShadow:
+                `0 0 8px ${item.color},
+                 0 0 20px ${item.color}`,
+
+            zIndex: "40"
+        });
+
+        el.textContent =
+            item.name
+                .replace("TĂNG ", "")
+                .replace("ĐẠN", "D");
+
+        arena.appendChild(el);
+
+        drops.push({
 
             x,
             y,
 
-            vx:
-                Math.cos(angle) *
-                speed,
+            item,
 
-            vy:
-                Math.sin(angle) *
-                speed,
+            life: 8000,
 
-            life: 1,
-
-            color
-
+            element: el
         });
-
     }
 
-}
+    /* =====================================================
+       17. UPDATE DROPS
+    ===================================================== */
 
+    function updateDrops(dt) {
 
-function updateParticles(delta) {
+        for (let i = drops.length - 1; i >= 0; i--) {
 
-    particles.forEach(
-        particle => {
+            const drop = drops[i];
 
-            particle.x +=
-                particle.vx *
-                delta;
+            drop.life -= dt * 16;
 
-            particle.y +=
-                particle.vy *
-                delta;
+            drop.y += Math.sin(
+                performance.now() / 200
+            ) * 0.2;
 
-            particle.life -=
-                .025 *
-                delta;
+            drop.element.style.left =
+                `${drop.x}px`;
 
-        }
-    );
+            drop.element.style.top =
+                `${drop.y}px`;
 
+            const distance = Math.hypot(
+                drop.x - player.x,
+                drop.y - player.y
+            );
 
-    particles =
-        particles.filter(
-            particle =>
-                particle.life > 0
-        );
+            if (distance < 35) {
 
-}
+                collectItem(drop.item);
 
+                drop.element.remove();
 
-/* =========================================================
-   LIGHTNING
-========================================================= */
+                drops.splice(i, 1);
 
-function createLightning(
-    x,
-    y
-) {
-
-    lightning.push({
-
-        x,
-        y,
-
-        life: 15
-
-    });
-
-}
-
-
-function updateLightning() {
-
-    lightning.forEach(
-        bolt => {
-
-            bolt.life--;
-
-        }
-    );
-
-
-    lightning =
-        lightning.filter(
-            bolt =>
-                bolt.life > 0
-        );
-
-}
-
-
-/* =========================================================
-   SKILL TIMER
-========================================================= */
-
-function updateSkills(delta) {
-
-    Object.keys(
-        player.skillTimers
-    ).forEach(
-        key => {
-
-            if (
-                player.skillTimers[key] >
-                0
-            ) {
-
-                player.skillTimers[key] -=
-                    16.67 *
-                    delta;
-
+                continue;
             }
 
-        }
-    );
+            if (drop.life <= 0) {
 
+                drop.element.remove();
 
-    if (
-        player.skillTimers.speed <= 0
-    ) {
-
-        player.speed =
-            player.baseSpeed;
-
-    }
-
-
-    if (
-        player.skillTimers.damage <= 0
-    ) {
-
-        player.damage = 5;
-
-        player.elemental = null;
-
-    }
-
-
-    if (
-        player.skillTimers.double <= 0 &&
-        player.skillTimers.triple <= 0
-    ) {
-
-        player.bulletCount = 1;
-
-    }
-
-
-    if (
-        player.skillTimers.ultra <= 0
-    ) {
-
-        /*
-           Ultra chỉ hết hiệu lực.
-           Damage sẽ được reset bởi damage timer
-           nếu không còn skill damage.
-        */
-
-    }
-
-
-    skills.forEach(
-        (skill, index) => {
-
-            skill.life -=
-                16.67 *
-                delta;
-
-
-            if (
-                skill.life <= 0
-            ) {
-
-                skill.element.remove();
-
-                skills.splice(
-                    index,
-                    1
-                );
-
+                drops.splice(i, 1);
             }
-
         }
-    );
-
-
-    syncPetPower();
-
-}
-
-
-/* =========================================================
-   WAVE SYSTEM
-========================================================= */
-
-function updateWaveSystem(delta) {
-
-    if (
-        phase !== "battle"
-    )
-        return;
-
-
-    /*
-       Mỗi wave cần một số lượng quái.
-
-       Stage càng cao:
-       số lượng quái càng tăng.
-    */
-
-    const target =
-        difficulty.enemyCount +
-        stage * 2 +
-        wave * 2;
-
-
-    /*
-       Spawn
-    */
-
-    if (
-        enemies.length < target
-    ) {
-
-        spawnTimer +=
-            16.67 *
-            delta;
-
-
-        if (
-            spawnTimer >=
-            550
-        ) {
-
-            spawnEnemy();
-
-            spawnTimer = 0;
-
-        }
-
     }
 
+    /* =====================================================
+       18. COLLECT ITEM
+    ===================================================== */
 
-    /*
-       Khi đã tiêu diệt hết wave
-    */
+    function collectItem(item) {
 
-    if (
-        enemies.length === 0 &&
-        spawnTimer === 0
-    ) {
+        showMessage(
+            `⚡ ${item.name} ACTIVATED`
+        );
+
+        switch (item.name) {
+
+            case "BOM":
+
+                enemies.forEach(e => {
+                    e.hp -= 40;
+                });
+
+                break;
+
+            case "TÊN LỬA":
+
+                enemies.forEach(e => {
+                    e.hp -= 70;
+                });
+
+                break;
+
+            case "QUÉT SẠCH":
+
+                enemies.forEach(e => {
+                    if (!e.isBoss) {
+                        e.hp = 0;
+                    }
+                });
+
+                break;
+
+            case "TĂNG TỐC":
+
+                player.speedBoost = 1.6;
+
+                setTimeout(() => {
+                    player.speedBoost = 1;
+                }, 7000);
+
+                break;
+
+            case "TĂNG TỐC BẮN":
+
+                player.fireRate *= 0.55;
+
+                setTimeout(() => {
+                    player.fireRate /= 0.55;
+                }, 8000);
+
+                break;
+
+            case "2 ĐẠN":
+
+                player.projectileCount =
+                    Math.max(
+                        player.projectileCount,
+                        2
+                    );
+
+                break;
+
+            case "3 ĐẠN":
+
+                player.projectileCount = 3;
+
+                break;
+
+            case "ULTRA GUN":
+
+                player.damage += 20;
+
+                player.fireRate *= 0.65;
+
+                break;
+
+            case "SẤM SÉT":
+
+                player.elemental =
+                    "thunder";
+
+                player.damage += 25;
+
+                break;
+
+            case "LỬA":
+
+                player.elemental =
+                    "fire";
+
+                player.damage += 20;
+
+                break;
+
+            case "BĂNG":
+
+                player.elemental =
+                    "ice";
+
+                player.damage += 18;
+
+                break;
+        }
+
+        updateHUD();
+    }
+
+    /* =====================================================
+       19. BOSS
+    ===================================================== */
+
+    function spawnBoss() {
+
+        if (bossAlive) return;
+
+        bossAlive = true;
+
+        createEnemy(true);
+
+        showMessage(
+            `☠ BOSS ĐÃ XUẤT HIỆN - STAGE ${stage}`
+        );
+    }
+
+    function bossDefeated() {
+
+        bossAlive = false;
+
+        score += 1000 * stage;
+
+        createExplosion(
+            player.x,
+            player.y - 100
+        );
 
         /*
-           Tránh chuyển wave ngay lúc vừa bắt đầu.
+           EASY + NORMAL:
+           nhận PET sau khi hạ boss
         */
 
-        waveClearTimer +=
-            16.67 *
-            delta;
-
-
         if (
-            waveClearTimer >
-            1200
+            (difficulty === "easy" ||
+             difficulty === "normal") &&
+            !pet
         ) {
 
-            waveClearTimer = 0;
+            createPet();
 
+            showMessage(
+                "🐾 PET ĐÃ THAM GIA CHIẾN ĐẤU!"
+            );
+        }
 
-            if (
-                wave <
-                WAVES_PER_STAGE
-            ) {
+        setTimeout(() => {
+
+            if (stage < STAGES) {
+
+                stage++;
 
                 wave++;
 
+                enemies.forEach(e => {
+                    if (e.dom) e.dom.remove();
+                });
+
+                enemies = [];
 
                 showMessage(
-                    `WAVE ${wave}`,
-                    900
+                    `STAGE ${stage}/5`
                 );
 
+            } else {
+
+                victory();
             }
 
-            else {
+        }, 2200);
+    }
 
-                /*
-                   Stage 5 → Boss
-                */
+    /* =====================================================
+       20. PET
+    ===================================================== */
 
-                if (
-                    stage === MAX_STAGES
-                ) {
+    function createPet() {
 
-                    startBossWarning();
+        pet = {
 
-                }
+            x: player.x - 70,
+            y: player.y,
 
-                else {
+            damage: player.damage,
 
-                    /*
-                       Stage 1-4
-                       chuyển màn.
-                    */
+            fireRate: player.fireRate,
 
-                    stage++;
+            element: document.createElement("div")
+        };
 
-                    wave = 1;
+        Object.assign(pet.element.style, {
 
-                    showMessage(
-                        `STAGE ${stage}`,
-                        1200
-                    );
+            position: "absolute",
 
-                }
+            width: "30px",
+            height: "30px",
 
-            }
+            transform: "translate(-50%, -50%)",
 
+            background:
+                "radial-gradient(circle, #ffccff, #aa00ff)",
+
+            border:
+                "2px solid #ff66ff",
+
+            borderRadius: "50%",
+
+            boxShadow:
+                "0 0 10px #ff00ff," +
+                "0 0 25px #aa00ff",
+
+            zIndex: "45"
+        });
+
+        arena.appendChild(pet.element);
+
+        pet.element.innerHTML = `
+            <div style="
+                position:absolute;
+                left:6px;
+                top:8px;
+                width:6px;
+                height:6px;
+                background:#000;
+                border-radius:50%;
+            "></div>
+
+            <div style="
+                position:absolute;
+                right:6px;
+                top:8px;
+                width:6px;
+                height:6px;
+                background:#000;
+                border-radius:50%;
+            "></div>
+        `;
+    }
+
+    function updatePet() {
+
+        if (!pet) return;
+
+        pet.x +=
+            (player.x - 70 - pet.x) * 0.08;
+
+        pet.y +=
+            (player.y - pet.y) * 0.08;
+
+        pet.element.style.left =
+            `${pet.x}px`;
+
+        pet.element.style.top =
+            `${pet.y}px`;
+    }
+
+    /* =====================================================
+       21. PET AUTO ATTACK
+    ===================================================== */
+
+    let petShootTimer = 0;
+
+    function petShoot(now) {
+
+        if (!pet) return;
+
+        if (now - petShootTimer < 650) {
+            return;
         }
 
-    }
+        petShootTimer = now;
 
-}
+        let target = null;
 
+        let closest = Infinity;
 
-/* =========================================================
-   DRAW BACKGROUND
-========================================================= */
+        enemies.forEach(enemy => {
 
-function drawBackground() {
-
-    ctx.fillStyle =
-        "#02040d";
-
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
-
-
-    /*
-       Cyber grid
-    */
-
-    ctx.strokeStyle =
-        "rgba(0,255,255,.07)";
-
-
-    const grid = 40;
-
-
-    for (
-        let x = 0;
-        x < canvas.width;
-        x += grid
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            x,
-            0
-        );
-
-        ctx.lineTo(
-            x,
-            canvas.height
-        );
-
-        ctx.stroke();
-
-    }
-
-
-    for (
-        let y = 0;
-        y < canvas.height;
-        y += grid
-    ) {
-
-        ctx.beginPath();
-
-        ctx.moveTo(
-            0,
-            y
-        );
-
-        ctx.lineTo(
-            canvas.width,
-            y
-        );
-
-        ctx.stroke();
-
-    }
-
-}
-
-
-/* =========================================================
-   PLAYER
-========================================================= */
-
-function drawPlayer() {
-
-    ctx.save();
-
-
-    ctx.shadowBlur = 25;
-
-    ctx.shadowColor =
-        "#00ffff";
-
-
-    ctx.fillStyle =
-        player.invincible > 0
-            ? "#ffffff"
-            : "#00ffff";
-
-
-    ctx.beginPath();
-
-
-    ctx.moveTo(
-        player.x,
-        player.y - 20
-    );
-
-
-    ctx.lineTo(
-        player.x + 18,
-        player.y + 15
-    );
-
-
-    ctx.lineTo(
-        player.x,
-        player.y + 8
-    );
-
-
-    ctx.lineTo(
-        player.x - 18,
-        player.y + 15
-    );
-
-
-    ctx.closePath();
-
-    ctx.fill();
-
-
-    ctx.restore();
-
-}
-
-
-/* =========================================================
-   PET DRAW
-========================================================= */
-
-function drawPet() {
-
-    if (
-        !pet.active
-    )
-        return;
-
-
-    ctx.save();
-
-
-    ctx.shadowBlur = 25;
-
-    ctx.shadowColor =
-        "#ff00ff";
-
-
-    ctx.fillStyle =
-        "#ff00ff";
-
-
-    /*
-       Pet hình robot mini
-    */
-
-    ctx.beginPath();
-
-
-    ctx.arc(
-        pet.x,
-        pet.y,
-        pet.size,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.fill();
-
-
-    ctx.fillStyle =
-        "#00ffff";
-
-
-    ctx.beginPath();
-
-
-    ctx.arc(
-        pet.x - 7,
-        pet.y - 2,
-        4,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.arc(
-        pet.x + 7,
-        pet.y - 2,
-        4,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.fill();
-
-
-    ctx.restore();
-
-}
-
-
-/* =========================================================
-   ENEMY DRAW
-========================================================= */
-
-function drawEnemies() {
-
-    enemies.forEach(
-        enemy => {
-
-            ctx.save();
-
-
-            const color =
-                enemy.elite
-                    ? "#ffff00"
-                    : "#ff0055";
-
-
-            ctx.shadowBlur = 20;
-
-            ctx.shadowColor =
-                color;
-
-
-            ctx.fillStyle =
-                color;
-
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-                enemy.x,
-                enemy.y,
-                enemy.size,
-                0,
-                Math.PI * 2
+            const distance = Math.hypot(
+                enemy.x - pet.x,
+                enemy.y - pet.y
             );
 
+            if (distance < closest) {
 
-            ctx.fill();
+                closest = distance;
 
+                target = enemy;
+            }
+        });
 
-            ctx.fillStyle =
-                "#ffffff";
+        if (!target) return;
 
+        const angle = Math.atan2(
+            target.y - pet.y,
+            target.x - pet.x
+        );
 
-            ctx.beginPath();
+        const el = document.createElement("div");
 
+        Object.assign(el.style, {
 
-            ctx.arc(
-                enemy.x,
-                enemy.y,
-                5,
-                0,
-                Math.PI * 2
+            position: "absolute",
+
+            width: "7px",
+            height: "7px",
+
+            background: "#ff00ff",
+
+            borderRadius: "50%",
+
+            boxShadow:
+                "0 0 8px #ff00ff," +
+                "0 0 15px #ff00ff",
+
+            zIndex: "40"
+        });
+
+        arena.appendChild(el);
+
+        enemyBullets.push({
+
+            x: pet.x,
+            y: pet.y,
+
+            vx: Math.cos(angle) * 7,
+            vy: Math.sin(angle) * 7,
+
+            damage: pet.damage,
+
+            element: el
+        });
+    }
+
+    /* =====================================================
+       22. ENEMY BULLETS
+    ===================================================== */
+
+    function updateEnemyBullets(dt) {
+
+        for (
+            let i = enemyBullets.length - 1;
+            i >= 0;
+            i--
+        ) {
+
+            const bullet =
+                enemyBullets[i];
+
+            bullet.x += bullet.vx * dt;
+            bullet.y += bullet.vy * dt;
+
+            bullet.element.style.left =
+                `${bullet.x}px`;
+
+            bullet.element.style.top =
+                `${bullet.y}px`;
+
+            const distance = Math.hypot(
+                bullet.x - player.x,
+                bullet.y - player.y
             );
 
+            if (distance < 25) {
 
-            ctx.fill();
+                damagePlayer(
+                    bullet.damage
+                );
 
+                bullet.element.remove();
 
-            /*
-               HP BAR
-            */
+                enemyBullets.splice(i, 1);
 
-            const width = 36;
+                continue;
+            }
 
+            if (
+                bullet.x < -30 ||
+                bullet.x > arena.clientWidth + 30 ||
+                bullet.y < -30 ||
+                bullet.y > arena.clientHeight + 30
+            ) {
 
-            ctx.fillStyle =
-                "rgba(255,255,255,.2)";
+                bullet.element.remove();
 
+                enemyBullets.splice(i, 1);
+            }
+        }
+    }
 
-            ctx.fillRect(
-                enemy.x -
-                width / 2,
+    /* =====================================================
+       23. EFFECTS
+    ===================================================== */
 
-                enemy.y -
-                enemy.size -
-                10,
+    function createHitEffect(x, y) {
 
-                width,
-                4
+        for (let i = 0; i < 5; i++) {
+
+            const p =
+                document.createElement("div");
+
+            Object.assign(p.style, {
+
+                position: "absolute",
+
+                left: `${x}px`,
+                top: `${y}px`,
+
+                width: "5px",
+                height: "5px",
+
+                background: "#00ffff",
+
+                borderRadius: "50%",
+
+                boxShadow:
+                    "0 0 10px #00ffff",
+
+                zIndex: "60"
+            });
+
+            arena.appendChild(p);
+
+            const angle =
+                Math.random() *
+                Math.PI *
+                2;
+
+            const speed =
+                Math.random() * 4 + 2;
+
+            let life = 20;
+
+            const timer =
+                setInterval(() => {
+
+                    p.style.left =
+                        `${x +
+                        Math.cos(angle) *
+                        speed *
+                        (20 - life)}px`;
+
+                    p.style.top =
+                        `${y +
+                        Math.sin(angle) *
+                        speed *
+                        (20 - life)}px`;
+
+                    life--;
+
+                    if (life <= 0) {
+
+                        clearInterval(timer);
+
+                        p.remove();
+                    }
+
+                }, 20);
+        }
+    }
+
+    function createExplosion(x, y) {
+
+        const ring =
+            document.createElement("div");
+
+        Object.assign(ring.style, {
+
+            position: "absolute",
+
+            left: `${x}px`,
+            top: `${y}px`,
+
+            width: "20px",
+            height: "20px",
+
+            transform:
+                "translate(-50%, -50%)",
+
+            border:
+                "5px solid #ff00ff",
+
+            borderRadius: "50%",
+
+            boxShadow:
+                "0 0 20px #ff00ff",
+
+            zIndex: "100"
+        });
+
+        arena.appendChild(ring);
+
+        let size = 20;
+
+        const timer =
+            setInterval(() => {
+
+                size += 20;
+
+                ring.style.width =
+                    `${size}px`;
+
+                ring.style.height =
+                    `${size}px`;
+
+                ring.style.opacity =
+                    `${1 - size / 300}`;
+
+                if (size >= 300) {
+
+                    clearInterval(timer);
+
+                    ring.remove();
+                }
+
+            }, 25);
+    }
+
+    /* =====================================================
+       24. SPAWN ENEMIES
+    ===================================================== */
+
+    function spawnEnemies(dt) {
+
+        if (bossAlive) return;
+
+        /*
+           Stage 5 = boss
+        */
+
+        if (stage === 5) {
+
+            if (enemies.length === 0) {
+
+                spawnBoss();
+            }
+
+            return;
+        }
+
+        enemySpawnTimer += dt;
+
+        const spawnRate =
+            Math.max(
+                650,
+                1300 -
+                stage * 100
             );
 
+        if (
+            enemySpawnTimer >= spawnRate &&
+            enemies.length < 8 + stage
+        ) {
 
-            ctx.fillStyle =
-                color;
+            enemySpawnTimer = 0;
 
+            createEnemy(false);
+        }
+    }
 
-            ctx.fillRect(
-                enemy.x -
-                width / 2,
+    /* =====================================================
+       25. HUD
+    ===================================================== */
 
-                enemy.y -
-                enemy.size -
-                10,
+    function updateHUD() {
 
-                width *
-                Math.max(
+        const scoreEl =
+            document.querySelector("#score");
+
+        const waveEl =
+            document.querySelector("#wave");
+
+        const stageEl =
+            document.querySelector("#stage");
+
+        const hpEl =
+            document.querySelector("#hp");
+
+        if (scoreEl) {
+            scoreEl.textContent =
+                Math.floor(score);
+        }
+
+        if (waveEl) {
+            waveEl.textContent =
+                `S${stage} / W${wave}`;
+        }
+
+        if (stageEl) {
+
+            stageEl.textContent =
+                `${DIFFICULTIES[difficulty].name}
+                 • STAGE ${stage}/5`;
+        }
+
+        if (hpEl) {
+
+            hpEl.textContent =
+                Math.ceil(player.hp);
+        }
+
+        const hpBar =
+            document.querySelector("#hpBar");
+
+        if (hpBar) {
+
+            hpBar.style.width =
+                `${Math.max(
                     0,
-                    enemy.health /
-                    enemy.maxHealth
-                ),
-
-                4
-            );
-
-
-            ctx.restore();
-
+                    player.hp /
+                    player.maxHp *
+                    100
+                )}%`;
         }
-    );
-
-}
-
-
-/* =========================================================
-   BOSS DRAW
-========================================================= */
-
-function drawBoss() {
-
-    if (!boss)
-        return;
-
-
-    ctx.save();
-
-
-    /*
-       👹 sticker demon
-
-       Dùng emoji lớn làm hình Boss.
-       Có glow cyber phía sau.
-    */
-
-    const color =
-        boss.phase === 2
-            ? "#ff0055"
-            : "#ff00ff";
-
-
-    ctx.shadowBlur = 45;
-
-    ctx.shadowColor =
-        color;
-
-
-    ctx.font =
-        `${boss.size * 2}px Arial`;
-
-
-    ctx.textAlign =
-        "center";
-
-    ctx.textBaseline =
-        "middle";
-
-
-    ctx.fillText(
-        boss.emoji,
-        boss.x,
-        boss.y
-    );
-
-
-    /*
-       Vòng năng lượng
-    */
-
-    ctx.strokeStyle =
-        color;
-
-
-    ctx.lineWidth = 3;
-
-
-    ctx.beginPath();
-
-
-    ctx.arc(
-        boss.x,
-        boss.y,
-        boss.size + 18,
-        0,
-        Math.PI * 2
-    );
-
-
-    ctx.stroke();
-
-
-    ctx.restore();
-
-}
-
-
-/* =========================================================
-   BULLETS DRAW
-========================================================= */
-
-function drawBullets() {
-
-    bullets.forEach(
-        bullet => {
-
-            ctx.save();
-
-
-            let color =
-                "#00ffff";
-
-
-            if (
-                bullet.elemental ===
-                "fire"
-            )
-                color = "#ff4400";
-
-
-            if (
-                bullet.elemental ===
-                "ice"
-            )
-                color = "#66ddff";
-
-
-            if (
-                bullet.elemental ===
-                "thunder"
-            )
-                color = "#9d7cff";
-
-
-            ctx.fillStyle =
-                color;
-
-
-            ctx.shadowBlur = 20;
-
-            ctx.shadowColor =
-                color;
-
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-                bullet.x,
-                bullet.y,
-                5,
-                0,
-                Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-
-            ctx.restore();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   ENEMY BULLETS DRAW
-========================================================= */
-
-function drawEnemyBullets() {
-
-    enemyBullets.forEach(
-        bullet => {
-
-            ctx.save();
-
-
-            ctx.fillStyle =
-                "#ff0055";
-
-
-            ctx.shadowBlur = 20;
-
-            ctx.shadowColor =
-                "#ff0055";
-
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-                bullet.x,
-                bullet.y,
-                6,
-                0,
-                Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-
-            ctx.restore();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   MISSILE DRAW
-========================================================= */
-
-function drawMissiles() {
-
-    missiles.forEach(
-        missile => {
-
-            ctx.save();
-
-
-            ctx.fillStyle =
-                "#ff5500";
-
-
-            ctx.shadowBlur = 20;
-
-            ctx.shadowColor =
-                "#ff5500";
-
-
-            ctx.beginPath();
-
-
-            ctx.arc(
-                missile.x,
-                missile.y,
-                7,
-                0,
-                Math.PI * 2
-            );
-
-
-            ctx.fill();
-
-
-            ctx.restore();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   LIGHTNING DRAW
-========================================================= */
-
-function drawLightning() {
-
-    lightning.forEach(
-        bolt => {
-
-            ctx.save();
-
-
-            ctx.strokeStyle =
-                "#9d7cff";
-
-
-            ctx.lineWidth = 4;
-
-
-            ctx.shadowBlur = 20;
-
-            ctx.shadowColor =
-                "#9d7cff";
-
-
-            ctx.beginPath();
-
-
-            ctx.moveTo(
-                bolt.x,
-                bolt.y - 60
-            );
-
-
-            ctx.lineTo(
-                bolt.x - 15,
-                bolt.y - 20
-            );
-
-
-            ctx.lineTo(
-                bolt.x + 10,
-                bolt.y
-            );
-
-
-            ctx.lineTo(
-                bolt.x - 10,
-                bolt.y + 30
-            );
-
-
-            ctx.lineTo(
-                bolt.x,
-                bolt.y + 60
-            );
-
-
-            ctx.stroke();
-
-
-            ctx.restore();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   PARTICLES DRAW
-========================================================= */
-
-function drawParticles() {
-
-    particles.forEach(
-        particle => {
-
-            ctx.save();
-
-
-            ctx.globalAlpha =
-                particle.life;
-
-
-            ctx.fillStyle =
-                particle.color;
-
-
-            ctx.shadowBlur = 15;
-
-            ctx.shadowColor =
-                particle.color;
-
-
-            ctx.fillRect(
-                particle.x,
-                particle.y,
-                4,
-                4
-            );
-
-
-            ctx.restore();
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   SKILL UI
-========================================================= */
-
-function updateSkillUI() {
-
-    const container =
-        document.getElementById(
-            "activeSkills"
-        );
-
-
-    const petStatus =
-        document.getElementById(
-            "petStatus"
-        );
-
-
-    if (!container)
-        return;
-
-
-    container.innerHTML = "";
-
-
-    const active = [];
-
-
-    if (
-        player.skillTimers.speed > 0
-    )
-        active.push(
-            ["⚡", "SPEED"]
-        );
-
-
-    if (
-        player.skillTimers.rapidFire > 0
-    )
-        active.push(
-            ["🔥", "RAPID"]
-        );
-
-
-    if (
-        player.bulletCount === 2
-    )
-        active.push(
-            ["🔫", "DOUBLE"]
-        );
-
-
-    if (
-        player.bulletCount === 3
-    )
-        active.push(
-            ["🔫", "TRIPLE"]
-        );
-
-
-    if (
-        player.elemental
-    ) {
-
-        const icon =
-            player.elemental === "fire"
-                ? "🔥"
-                : player.elemental === "ice"
-                    ? "❄️"
-                    : "⚡";
-
-
-        active.push(
-            [
-                icon,
-                player.elemental.toUpperCase()
-            ]
-        );
-
     }
 
+    /* =====================================================
+       26. MESSAGE
+    ===================================================== */
 
-    if (
-        player.skillTimers.ultra > 0
-    )
-        active.push(
-            ["👑", "ULTRA"]
-        );
+    function showMessage(text) {
 
-
-    if (
-        player.damage > 5
-    )
-        active.push(
-            ["💥", "DAMAGE"]
-        );
-
-
-    active.forEach(
-        item => {
-
-            const element =
-                document.createElement(
-                    "div"
-                );
-
-
-            element.className =
-                "active-skill";
-
-
-            element.innerHTML = `
-
-                <span class="active-skill-icon">
-                    ${item[0]}
-                </span>
-
-                <span class="active-skill-name">
-                    ${item[1]}
-                </span>
-
-            `;
-
-
-            container.appendChild(
-                element
+        const old =
+            document.querySelector(
+                ".game-message"
             );
 
-        }
-    );
+        if (old) old.remove();
 
+        const msg =
+            document.createElement("div");
 
-    if (petStatus) {
+        msg.className =
+            "game-message";
 
-        petStatus.textContent =
-            pet.active
-                ? "🐾 PET ONLINE"
-                : "";
+        Object.assign(msg.style, {
 
+            position: "absolute",
+
+            left: "50%",
+            top: "30%",
+
+            transform:
+                "translate(-50%, -50%)",
+
+            color: "#00ffff",
+
+            fontSize: "22px",
+
+            fontWeight: "bold",
+
+            letterSpacing: "3px",
+
+            textShadow:
+                "0 0 10px #00ffff," +
+                "0 0 25px #00ffff",
+
+            zIndex: "200",
+
+            pointerEvents: "none"
+        });
+
+        msg.textContent = text;
+
+        arena.appendChild(msg);
+
+        setTimeout(() => {
+
+            msg.remove();
+
+        }, 1800);
     }
 
-}
+    /* =====================================================
+       27. GAME OVER
+    ===================================================== */
 
+    function gameOver() {
 
-/* =========================================================
-   UPDATE UI
-========================================================= */
+        gameRunning = false;
 
-function updateUI() {
+        showMessage(
+            "☠ SYSTEM FAILURE"
+        );
 
-    if (scoreElement)
-        scoreElement.textContent =
-            score;
+        setTimeout(() => {
 
-
-    if (waveElement)
-        waveElement.textContent =
-            `S${stage} / W${wave}`;
-
-
-    if (comboElement)
-        comboElement.textContent =
-            "x" + combo;
-
-
-    if (healthText)
-        healthText.textContent =
-            Math.max(
-                0,
-                Math.floor(
-                    player.health
+            if (
+                confirm(
+                    `GAME OVER\nĐiểm: ${Math.floor(score)}\nChơi lại?`
                 )
-            );
+            ) {
 
+                location.reload();
+            }
 
-    if (healthBar)
-        healthBar.style.width =
-            Math.max(
-                0,
-                player.health
-            ) + "%";
+        }, 500);
+    }
 
+    /* =====================================================
+       28. VICTORY
+    ===================================================== */
 
-    if (levelText)
-        levelText.textContent =
-            `${difficulty.name} • STAGE ${stage}/5`;
+    function victory() {
 
-}
+        gameRunning = false;
 
+        createExplosion(
+            arena.clientWidth / 2,
+            arena.clientHeight / 2
+        );
 
-/* =========================================================
-   GAME OVER
-========================================================= */
+        showMessage(
+            "★ CYBERARENA CLEARED ★"
+        );
 
-function endGame() {
-
-    gameRunning = false;
-
-
-    if (finalScore)
-        finalScore.textContent =
-            score;
-
-
-    if (finalWave)
-        finalWave.textContent =
-            `STAGE ${stage}`;
-
-
-    gameOver.classList.remove(
-        "hidden"
-    );
-
-}
-
-
-/* =========================================================
-   GAME COMPLETE
-========================================================= */
-
-function completeGame() {
-
-    phase =
-        "game-complete";
-
-
-    gameRunning = false;
-
-
-    showMessage(
-        "🏆 5 STAGES COMPLETE 🏆",
-        3000
-    );
-
-
-    setTimeout(
-        () => {
+        setTimeout(() => {
 
             alert(
-                `🏆 ${difficulty.name} COMPLETE!\n\n` +
-                `Score: ${score}\n\n` +
-                `Bạn đã đánh bại CYBER DEMON!`
+                `🏆 CHIẾN THẮNG!\n\n` +
+                `Độ khó: ${DIFFICULTIES[difficulty].name}\n` +
+                `Điểm: ${Math.floor(score)}\n` +
+                `Hoàn thành 5/5 màn!`
             );
 
-        },
-        500
-    );
-
-}
-
-
-/* =========================================================
-   MOVEMENT
-========================================================= */
-
-function movePlayer() {
-
-    let dx = 0;
-    let dy = 0;
-
-
-    if (
-        keys["w"] ||
-        keys["arrowup"]
-    )
-        dy--;
-
-
-    if (
-        keys["s"] ||
-        keys["arrowdown"]
-    )
-        dy++;
-
-
-    if (
-        keys["a"] ||
-        keys["arrowleft"]
-    )
-        dx--;
-
-
-    if (
-        keys["d"] ||
-        keys["arrowright"]
-    )
-        dx++;
-
-
-    if (
-        dx !== 0 ||
-        dy !== 0
-    ) {
-
-        const length =
-            Math.hypot(
-                dx,
-                dy
-            );
-
-
-        dx /= length;
-        dy /= length;
-
+        }, 1500);
     }
 
+    /* =====================================================
+       29. MAIN LOOP
+    ===================================================== */
 
-    player.x +=
-        dx *
-        player.speed;
+    function gameLoop(now) {
 
+        const delta =
+            Math.min(
+                now - lastTime,
+                50
+            );
 
-    player.y +=
-        dy *
-        player.speed;
+        lastTime = now;
 
+        const dt =
+            delta / 16.67;
 
-    const half =
-        player.size / 2;
+        if (gameRunning) {
 
+            movePlayer(dt);
+
+            autoShoot(now);
+
+            petShoot(now);
+
+            spawnEnemies(dt);
+
+            updateEnemies(dt);
+
+            updateBullets(dt);
+
+            updateEnemyBullets(dt);
+
+            updateDrops(dt);
+
+            updatePet();
+
+            updateHUD();
+        }
+
+        requestAnimationFrame(
+            gameLoop
+        );
+    }
+
+    /* =====================================================
+       30. DIFFICULTY DETECTION
+    ===================================================== */
+
+    function detectDifficulty() {
+
+        const text =
+            document.body.innerText
+                .toLowerCase();
+
+        if (text.includes("dễ")) {
+            difficulty = "easy";
+        }
+
+        if (text.includes("khó")) {
+            difficulty = "hard";
+        }
+
+        /*
+           Mặc định:
+           BÌNH THƯỜNG
+        */
+
+        updateHUD();
+    }
+
+    /* =====================================================
+       31. INITIALIZE
+    ===================================================== */
+
+    detectDifficulty();
 
     player.x =
-        Math.max(
-            half,
-
-            Math.min(
-                canvas.width -
-                half,
-
-                player.x
-            )
-        );
-
+        arena.clientWidth / 2;
 
     player.y =
-        Math.max(
-            half,
+        arena.clientHeight - 110;
 
-            Math.min(
-                canvas.height -
-                half,
+    playerElement.style.left =
+        `${player.x}px`;
 
-                player.y
-            )
-        );
+    playerElement.style.top =
+        `${player.y}px`;
 
-}
+    /*
+       Spawn một vài quái ngay khi bắt đầu
+       để màn hình không còn trống.
+    */
 
+    setTimeout(() => {
 
-/* =========================================================
-   KEYBOARD
-========================================================= */
+        createEnemy(false);
+        createEnemy(false);
 
-document.addEventListener(
-    "keydown",
-    event => {
+    }, 500);
 
-        keys[
-            event.key.toLowerCase()
-        ] = true;
+    updateHUD();
 
-    }
-);
-
-
-document.addEventListener(
-    "keyup",
-    event => {
-
-        keys[
-            event.key.toLowerCase()
-        ] = false;
-
-    }
-);
-
-
-/* =========================================================
-   DIFFICULTY BUTTON
-========================================================= */
-
-document
-    .querySelectorAll(
-        ".difficulty"
-    )
-    .forEach(
-        button => {
-
-            button.addEventListener(
-                "click",
-                () => {
-
-                    startGame(
-                        button.dataset.level
-                    );
-
-                }
-            );
-
-        }
+    showMessage(
+        "⚡ CYBERARENA ONLINE"
     );
-
-
-/* =========================================================
-   RESTART
-========================================================= */
-
-if (restartButton) {
-
-    restartButton.addEventListener(
-        "click",
-        () => {
-
-            menu.classList.remove(
-                "hidden"
-            );
-
-            gameOver.classList.add(
-                "hidden"
-            );
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   MAIN LOOP
-========================================================= */
-
-function gameLoop(time) {
-
-    if (!gameRunning)
-        return;
-
-
-    const delta =
-        Math.min(
-            (time - lastTime) /
-            16.67,
-            2
-        );
-
-
-    lastTime = time;
-
-
-    /*
-       Player cooldown
-    */
-
-    if (
-        player.attackCooldown > 0
-    ) {
-
-        player.attackCooldown -=
-            16.67 *
-            delta;
-
-    }
-
-
-    if (
-        player.invincible > 0
-    ) {
-
-        player.invincible -=
-            16.67 *
-            delta;
-
-    }
-
-
-    /*
-       Movement
-    */
-
-    movePlayer();
-
-
-    /*
-       AUTO FIRE
-    */
-
-    autoFire();
-
-
-    /*
-       Pet
-    */
-
-    updatePet(delta);
-
-
-    /*
-       Wave
-    */
-
-    updateWaveSystem(delta);
-
-
-    /*
-       Enemies
-    */
-
-    updateEnemies(delta);
-
-
-    /*
-       Bullets
-    */
-
-    updateBullets(delta);
-
-
-    /*
-       Boss
-    */
-
-    if (
-        phase === "boss"
-    ) {
-
-        updateBoss(delta);
-
-    }
-
-
-    /*
-       Enemy bullets
-    */
-
-    updateEnemyBullets(delta);
-
-
-    /*
-       Missiles
-    */
-
-    updateMissiles(delta);
-
-
-    /*
-       Effects
-    */
-
-    updateParticles(delta);
-
-    updateLightning();
-
-
-    /*
-       Skills
-    */
-
-    updateSkills(delta);
-
-    checkSkillPickup();
-
-
-    /*
-       DRAW
-    */
-
-    drawBackground();
-
-    drawParticles();
-
-    drawLightning();
-
-    drawBullets();
-
-    drawMissiles();
-
-    drawEnemyBullets();
-
-    drawEnemies();
-
-    drawBoss();
-
-    drawPet();
-
-    drawPlayer();
-
-
-    /*
-       UI
-    */
-
-    updateUI();
-
 
     requestAnimationFrame(
         gameLoop
     );
 
-}
-
-
-/* =========================================================
-   INIT
-========================================================= */
-
-createGameUI();
-
-updateUI();
+})();
