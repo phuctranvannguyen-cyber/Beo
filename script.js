@@ -1,16 +1,10 @@
 /* =========================================================
    CYBER ARENA
-   VERSION 2.0 - SKILL DROP SYSTEM
+   ROUND + WAVE + BOSS SYSTEM
    ========================================================= */
-
-
-/* =========================================================
-   CANVAS
-========================================================= */
 
 const canvas = document.getElementById("gameCanvas");
 const ctx = canvas.getContext("2d");
-
 
 function resizeCanvas() {
     canvas.width = canvas.clientWidth;
@@ -18,7 +12,6 @@ function resizeCanvas() {
 }
 
 resizeCanvas();
-
 window.addEventListener("resize", resizeCanvas);
 
 
@@ -56,29 +49,26 @@ const difficulties = {
 
     easy: {
         name: "DỄ",
-        enemyCount: 5,
-        enemySpeed: 0.7,
-        enemyHealth: 1,
-        damage: 8,
-        spawnDelay: 1500
+        enemyHP: 2,
+        enemySpeed: 0.65,
+        enemyDamage: 6,
+        enemyCount: 5
     },
 
     normal: {
         name: "BÌNH THƯỜNG",
-        enemyCount: 8,
-        enemySpeed: 1.05,
-        enemyHealth: 2,
-        damage: 12,
-        spawnDelay: 1100
+        enemyHP: 3,
+        enemySpeed: 0.95,
+        enemyDamage: 10,
+        enemyCount: 7
     },
 
     hard: {
         name: "KHÓ",
-        enemyCount: 12,
-        enemySpeed: 1.4,
-        enemyHealth: 3,
-        damage: 18,
-        spawnDelay: 750
+        enemyHP: 5,
+        enemySpeed: 1.3,
+        enemyDamage: 15,
+        enemyCount: 10
     }
 
 };
@@ -87,27 +77,49 @@ let difficulty = difficulties.normal;
 
 
 /* =========================================================
-   GAME VARIABLES
+   GAME STATE
 ========================================================= */
 
 let gameRunning = false;
 
 let score = 0;
-let wave = 1;
 let combo = 1;
 
-let lastKillTime = 0;
+let round = 1;
+let wave = 1;
+
+let maxRounds = 10;
+
+let phase = "battle";
+
+/*
+phase:
+
+battle
+boss-warning
+boss
+reward
+round-clear
+game-complete
+*/
 
 let enemies = [];
 let bullets = [];
 let particles = [];
-let skills = [];
+let missiles = [];
 let lightning = [];
+let skills = [];
+let enemyBullets = [];
 
-let keys = {};
+let boss = null;
+
+let spawnTimer = 0;
+let waveEnemyTarget = 0;
 
 let lastTime = 0;
-let spawnTimer = 0;
+let lastKillTime = 0;
+
+let keys = {};
 
 
 /* =========================================================
@@ -127,35 +139,36 @@ const player = {
     health: 100,
     maxHealth: 100,
 
-    baseAttackCooldown: 250,
-    attackCooldown: 0,
-
-    invincible: 0,
-
     damage: 1,
 
     bulletCount: 1,
 
     bulletSpeed: 12,
 
+    attackCooldown: 0,
+
+    baseAttackCooldown: 250,
+
+    invincible: 0,
+
+    elemental: null,
+
     skillTimers: {
 
         speed: 0,
         rapidFire: 0,
         damage: 0,
-        ultraGun: 0,
-        doubleShot: 0,
-        tripleShot: 0
+        ultra: 0,
+        double: 0,
+        triple: 0
 
-    },
-
-    elemental: null
+    }
 
 };
 
 
 /* =========================================================
-   SKILL DEFINITIONS
+   SKILLS
 ========================================================= */
 
 const SKILLS = [
@@ -165,8 +178,7 @@ const SKILLS = [
         name: "BOM",
         icon: "💣",
         chance: 8,
-        color: "#ff5500",
-        description: "Nổ diện rộng"
+        color: "#ff5500"
     },
 
     {
@@ -174,8 +186,7 @@ const SKILLS = [
         name: "TÊN LỬA",
         icon: "🚀",
         chance: 8,
-        color: "#ff3333",
-        description: "Tên lửa tự tìm địch"
+        color: "#ff3333"
     },
 
     {
@@ -183,8 +194,7 @@ const SKILLS = [
         name: "QUÉT SẠCH",
         icon: "☢️",
         chance: 4,
-        color: "#ff00ff",
-        description: "Tiêu diệt toàn bộ địch"
+        color: "#ff00ff"
     },
 
     {
@@ -192,8 +202,7 @@ const SKILLS = [
         name: "TĂNG TỐC",
         icon: "⚡",
         chance: 12,
-        color: "#00ffff",
-        description: "Tăng tốc di chuyển"
+        color: "#00ffff"
     },
 
     {
@@ -201,26 +210,23 @@ const SKILLS = [
         name: "RAPID FIRE",
         icon: "🔥",
         chance: 18,
-        color: "#ffff00",
-        description: "Tăng tốc độ bắn"
+        color: "#ffff00"
     },
 
     {
         id: "double",
-        name: "2 ĐƯỜNG ĐẠN",
+        name: "DOUBLE SHOT",
         icon: "🔫",
         chance: 10,
-        color: "#00ff88",
-        description: "Bắn 2 viên"
+        color: "#00ff88"
     },
 
     {
         id: "triple",
-        name: "3 ĐƯỜNG ĐẠN",
+        name: "TRIPLE SHOT",
         icon: "🔫",
         chance: 7,
-        color: "#00ff88",
-        description: "Bắn 3 viên"
+        color: "#00ff88"
     },
 
     {
@@ -228,8 +234,7 @@ const SKILLS = [
         name: "SẤM SÉT",
         icon: "⚡",
         chance: 8,
-        color: "#9d7cff",
-        description: "Sét gây damage lớn"
+        color: "#9d7cff"
     },
 
     {
@@ -237,8 +242,7 @@ const SKILLS = [
         name: "LỬA",
         icon: "🔥",
         chance: 7,
-        color: "#ff4400",
-        description: "Đạn lửa"
+        color: "#ff4400"
     },
 
     {
@@ -246,8 +250,7 @@ const SKILLS = [
         name: "BĂNG",
         icon: "❄️",
         chance: 6,
-        color: "#66ddff",
-        description: "Làm chậm địch"
+        color: "#66ddff"
     },
 
     {
@@ -255,8 +258,7 @@ const SKILLS = [
         name: "ULTRA GUN",
         icon: "👑",
         chance: 5,
-        color: "#ff00ff",
-        description: "Siêu tốc độ bắn"
+        color: "#ff00ff"
     },
 
     {
@@ -264,20 +266,43 @@ const SKILLS = [
         name: "SUPER DAMAGE",
         icon: "💥",
         chance: 7,
-        color: "#ff0055",
-        description: "Tăng damage"
+        color: "#ff0055"
     }
 
 ];
 
 
 /* =========================================================
-   SKILL UI
+   BOSS DATA
 ========================================================= */
 
-function createSkillUI() {
+const BOSS_NAMES = [
 
-    if (document.getElementById("skillPanel")) {
+    "CYBER REAPER",
+    "VOID HUNTER",
+    "NEON DESTROYER",
+    "DARK TITAN",
+    "MECHA X",
+    "CYBER DRAGON",
+    "OMEGA CORE",
+    "VOID EMPEROR",
+    "NIGHTMARE",
+    "FINAL OVERLORD"
+
+];
+
+
+/* =========================================================
+   CREATE SKILL PANEL
+========================================================= */
+
+function createSkillPanel() {
+
+    if (
+        document.getElementById(
+            "skillPanel"
+        )
+    ) {
         return;
     }
 
@@ -294,8 +319,9 @@ function createSkillUI() {
         <div id="activeSkills"></div>
     `;
 
-    document.querySelector(".game-box")
-        .appendChild(panel);
+    document.querySelector(
+        ".game-box"
+    ).appendChild(panel);
 
 
     const style =
@@ -304,162 +330,143 @@ function createSkillUI() {
     style.textContent = `
 
         #skillPanel {
-
-            position: absolute;
-
-            top: 55px;
-            left: 20px;
-
-            z-index: 15;
-
-            min-width: 190px;
-
-            pointer-events: none;
-
+            position:absolute;
+            top:55px;
+            left:20px;
+            z-index:20;
+            pointer-events:none;
         }
 
         .skill-title {
-
-            color: #00ffff;
-
-            font-size: 9px;
-
-            letter-spacing: 2px;
-
-            margin-bottom: 5px;
-
-            text-shadow:
-                0 0 8px #00ffff;
-
+            color:#00ffff;
+            font-size:9px;
+            letter-spacing:2px;
+            text-shadow:0 0 10px #00ffff;
         }
 
         #activeSkills {
-
-            display: flex;
-
-            gap: 5px;
-
-            flex-wrap: wrap;
-
+            display:flex;
+            gap:5px;
+            margin-top:5px;
         }
 
         .active-skill {
-
-            min-width: 48px;
-
-            padding: 5px;
-
-            text-align: center;
-
-            border: 1px solid;
-
-            background:
-                rgba(2, 5, 20, 0.85);
-
-            box-shadow:
-                0 0 10px currentColor;
-
+            padding:5px 7px;
+            border:1px solid #00ffff;
+            background:rgba(0,0,20,.8);
+            box-shadow:0 0 12px #00ffff;
+            text-align:center;
         }
 
         .active-skill-icon {
-
-            display: block;
-
-            font-size: 18px;
-
+            display:block;
+            font-size:18px;
         }
 
         .active-skill-name {
-
-            display: block;
-
-            font-size: 6px;
-
-            margin-top: 2px;
-
+            font-size:6px;
+            color:white;
         }
 
         .skill-drop {
-
-            position: absolute;
-
-            width: 58px;
-
-            height: 58px;
-
-            display: flex;
-
-            align-items: center;
-
-            justify-content: center;
-
-            border-radius: 50%;
-
-            background:
-                rgba(2, 5, 20, 0.9);
-
-            border: 2px solid;
-
-            box-shadow:
-                0 0 20px currentColor;
-
-            font-size: 27px;
-
-            z-index: 12;
-
-            animation:
-                skillPulse 0.8s infinite alternate;
-
+            position:absolute;
+            width:58px;
+            height:58px;
+            border-radius:50%;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            background:rgba(0,5,20,.95);
+            border:2px solid;
+            box-shadow:0 0 25px currentColor;
+            font-size:28px;
+            z-index:25;
+            animation:skillPulse .7s infinite alternate;
         }
 
         @keyframes skillPulse {
-
             from {
-                transform: scale(0.9);
+                transform:scale(.85);
             }
 
             to {
-                transform: scale(1.1);
+                transform:scale(1.12);
             }
-
         }
 
-        .skill-pickup-text {
-
-            position: absolute;
-
-            z-index: 30;
-
-            pointer-events: none;
-
-            font-weight: bold;
-
-            font-size: 13px;
-
-            letter-spacing: 1px;
-
+        .boss-warning {
+            position:absolute;
+            left:50%;
+            top:35%;
+            transform:translate(-50%,-50%);
+            z-index:50;
+            color:#ff0055;
+            font-size:35px;
+            font-weight:bold;
+            letter-spacing:8px;
             text-shadow:
-                0 0 8px currentColor;
-
-            animation:
-                pickupFloat 1s forwards;
-
+                0 0 10px #ff0055,
+                0 0 30px #ff0055;
+            animation:warning .6s infinite alternate;
+            pointer-events:none;
         }
 
-        @keyframes pickupFloat {
-
+        @keyframes warning {
             from {
-                opacity: 1;
-                transform:
-                    translateY(0);
+                opacity:.5;
             }
 
             to {
-                opacity: 0;
-                transform:
-                    translateY(-50px);
+                opacity:1;
             }
+        }
 
+        .boss-bar {
+            position:absolute;
+            top:20px;
+            left:50%;
+            transform:translateX(-50%);
+            width:55%;
+            z-index:40;
+            pointer-events:none;
+        }
+
+        .boss-name {
+            text-align:center;
+            color:#ff0055;
+            font-weight:bold;
+            letter-spacing:3px;
+            margin-bottom:5px;
+            text-shadow:0 0 10px #ff0055;
+        }
+
+        .boss-health-bg {
+            width:100%;
+            height:12px;
+            border:1px solid #ff0055;
+            background:rgba(255,0,80,.15);
+        }
+
+        .boss-health {
+            height:100%;
+            width:100%;
+            background:#ff0055;
+            box-shadow:0 0 15px #ff0055;
+        }
+
+        .round-message {
+            position:absolute;
+            top:45%;
+            left:50%;
+            transform:translate(-50%,-50%);
+            z-index:45;
+            color:#00ffff;
+            text-align:center;
+            font-size:28px;
+            font-weight:bold;
+            letter-spacing:5px;
+            text-shadow:0 0 20px #00ffff;
+            pointer-events:none;
         }
 
     `;
@@ -468,26 +475,37 @@ function createSkillUI() {
 
 }
 
-
-createSkillUI();
+createSkillPanel();
 
 
 /* =========================================================
-   SKILL DROP - RANDOM WEIGHT
+   SKILL RANDOM
 ========================================================= */
 
 function getRandomSkill() {
 
-    const random =
-        Math.random() * 100;
+    let total = 0;
 
-    let current = 0;
+    SKILLS.forEach(
+        skill => {
+            total += skill.chance;
+        }
+    );
 
-    for (const skill of SKILLS) {
+    let random =
+        Math.random() * total;
 
-        current += skill.chance;
 
-        if (random <= current) {
+    for (
+        const skill of SKILLS
+    ) {
+
+        random -=
+            skill.chance;
+
+        if (
+            random <= 0
+        ) {
 
             return skill;
 
@@ -504,14 +522,41 @@ function getRandomSkill() {
    DROP SKILL
 ========================================================= */
 
-function dropSkill(x, y) {
+function dropSkill(
+    x,
+    y,
+    guaranteed = false
+) {
+
+    /*
+       NORMAL ENEMY:
+       chỉ 3% drop
+
+       ELITE:
+       khoảng 8%
+
+       BOSS:
+       guaranteed
+    */
+
+    if (
+        !guaranteed &&
+        Math.random() > 0.03
+    ) {
+
+        return;
+
+    }
+
 
     const skill =
         getRandomSkill();
 
 
     const element =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
     element.className =
         "skill-drop";
@@ -531,27 +576,23 @@ function dropSkill(x, y) {
     element.style.borderColor =
         skill.color;
 
-    element.title =
-        skill.name +
-        " - " +
-        skill.description;
 
-
-    document.querySelector(".game-box")
-        .appendChild(element);
+    document.querySelector(
+        ".game-box"
+    ).appendChild(element);
 
 
     skills.push({
 
+        x,
+
+        y,
+
         type: skill,
 
-        x: x,
+        element,
 
-        y: y,
-
-        element: element,
-
-        life: 9000
+        life: 12000
 
     });
 
@@ -559,7 +600,7 @@ function dropSkill(x, y) {
 
 
 /* =========================================================
-   PICKUP SKILL
+   PICKUP
 ========================================================= */
 
 function checkSkillPickup() {
@@ -569,20 +610,20 @@ function checkSkillPickup() {
 
             const distance =
                 Math.hypot(
-                    player.x - skill.x,
-                    player.y - skill.y
+                    player.x -
+                    skill.x,
+
+                    player.y -
+                    skill.y
                 );
 
 
-            if (distance < 45) {
+            if (
+                distance < 45
+            ) {
 
                 activateSkill(
                     skill.type
-                );
-
-
-                showPickupText(
-                    skill
                 );
 
 
@@ -602,69 +643,27 @@ function checkSkillPickup() {
 
 
 /* =========================================================
-   SHOW PICKUP TEXT
-========================================================= */
-
-function showPickupText(skill) {
-
-    const text =
-        document.createElement("div");
-
-    text.className =
-        "skill-pickup-text";
-
-    text.textContent =
-        skill.icon +
-        " " +
-        skill.name;
-
-    text.style.left =
-        player.x + "px";
-
-    text.style.top =
-        player.y + "px";
-
-    text.style.color =
-        skill.color;
-
-    document.querySelector(".game-box")
-        .appendChild(text);
-
-
-    setTimeout(() => {
-
-        text.remove();
-
-    }, 1000);
-
-}
-
-
-/* =========================================================
    ACTIVATE SKILL
 ========================================================= */
 
 function activateSkill(skill) {
 
-    switch (skill.id) {
-
-
-        /* --------------------------------
-           BOMB
-        -------------------------------- */
+    switch (
+        skill.id
+    ) {
 
         case "bomb":
 
             enemies.forEach(
                 enemy => {
 
-                    enemy.health -= 5;
+                    enemy.health -= 8;
 
                     createExplosion(
                         enemy.x,
                         enemy.y,
                         "#ff5500",
-                        15
+                        20
                     );
 
                 }
@@ -673,20 +672,12 @@ function activateSkill(skill) {
             break;
 
 
-        /* --------------------------------
-           MISSILE
-        -------------------------------- */
-
         case "missile":
 
-            launchMissile();
+            launchMissiles();
 
             break;
 
-
-        /* --------------------------------
-           CLEAR
-        -------------------------------- */
 
         case "clear":
 
@@ -704,16 +695,12 @@ function activateSkill(skill) {
             );
 
             score +=
-                enemies.length * 150;
+                enemies.length * 100;
 
             enemies = [];
 
             break;
 
-
-        /* --------------------------------
-           SPEED
-        -------------------------------- */
 
         case "speed":
 
@@ -721,54 +708,38 @@ function activateSkill(skill) {
                 player.baseSpeed * 1.8;
 
             player.skillTimers.speed =
-                8000;
-
-            break;
-
-
-        /* --------------------------------
-           RAPID FIRE
-        -------------------------------- */
-
-        case "rapid":
-
-            player.skillTimers.rapidFire =
                 10000;
 
             break;
 
 
-        /* --------------------------------
-           DOUBLE
-        -------------------------------- */
+        case "rapid":
+
+            player.skillTimers.rapidFire =
+                12000;
+
+            break;
+
 
         case "double":
 
             player.bulletCount = 2;
 
-            player.skillTimers.doubleShot =
-                12000;
+            player.skillTimers.double =
+                15000;
 
             break;
 
-
-        /* --------------------------------
-           TRIPLE
-        -------------------------------- */
 
         case "triple":
 
             player.bulletCount = 3;
 
-            player.skillTimers.tripleShot =
-                12000;
+            player.skillTimers.triple =
+                15000;
 
             break;
 
-
-        /* --------------------------------
-           THUNDER
-        -------------------------------- */
 
         case "thunder":
 
@@ -776,14 +747,10 @@ function activateSkill(skill) {
                 "thunder";
 
             player.skillTimers.damage =
-                12000;
+                15000;
 
             break;
 
-
-        /* --------------------------------
-           FIRE
-        -------------------------------- */
 
         case "fire":
 
@@ -791,14 +758,10 @@ function activateSkill(skill) {
                 "fire";
 
             player.skillTimers.damage =
-                12000;
+                15000;
 
             break;
 
-
-        /* --------------------------------
-           ICE
-        -------------------------------- */
 
         case "ice":
 
@@ -806,18 +769,14 @@ function activateSkill(skill) {
                 "ice";
 
             player.skillTimers.damage =
-                12000;
+                15000;
 
             break;
 
 
-        /* --------------------------------
-           ULTRA
-        -------------------------------- */
-
         case "ultra":
 
-            player.skillTimers.ultraGun =
+            player.skillTimers.ultra =
                 12000;
 
             player.damage = 3;
@@ -825,21 +784,16 @@ function activateSkill(skill) {
             break;
 
 
-        /* --------------------------------
-           SUPER DAMAGE
-        -------------------------------- */
-
         case "damage":
 
             player.damage = 4;
 
             player.skillTimers.damage =
-                12000;
+                15000;
 
             break;
 
     }
-
 
     updateSkillUI();
 
@@ -847,7 +801,7 @@ function activateSkill(skill) {
 
 
 /* =========================================================
-   ACTIVE SKILL UI
+   ACTIVE SKILLS UI
 ========================================================= */
 
 function updateSkillUI() {
@@ -871,10 +825,9 @@ function updateSkillUI() {
         player.skillTimers.speed > 0
     ) {
 
-        active.push({
-            icon: "⚡",
-            name: "SPEED"
-        });
+        active.push(
+            ["⚡", "SPEED"]
+        );
 
     }
 
@@ -883,10 +836,9 @@ function updateSkillUI() {
         player.skillTimers.rapidFire > 0
     ) {
 
-        active.push({
-            icon: "🔥",
-            name: "RAPID"
-        });
+        active.push(
+            ["🔥", "RAPID"]
+        );
 
     }
 
@@ -895,10 +847,9 @@ function updateSkillUI() {
         player.bulletCount === 2
     ) {
 
-        active.push({
-            icon: "🔫",
-            name: "DOUBLE"
-        });
+        active.push(
+            ["🔫", "DOUBLE"]
+        );
 
     }
 
@@ -907,10 +858,9 @@ function updateSkillUI() {
         player.bulletCount === 3
     ) {
 
-        active.push({
-            icon: "🔫",
-            name: "TRIPLE"
-        });
+        active.push(
+            ["🔫", "TRIPLE"]
+        );
 
     }
 
@@ -919,34 +869,30 @@ function updateSkillUI() {
         player.elemental
     ) {
 
-        active.push({
+        const icon =
+            player.elemental === "fire"
+                ? "🔥"
+                : player.elemental === "ice"
+                    ? "❄️"
+                    : "⚡";
 
-            icon:
-                player.elemental ===
-                "fire"
-                    ? "🔥"
-                    : player.elemental ===
-                      "ice"
-                        ? "❄️"
-                        : "⚡",
-
-            name:
-                player.elemental
-                    .toUpperCase()
-
-        });
+        active.push(
+            [
+                icon,
+                player.elemental.toUpperCase()
+            ]
+        );
 
     }
 
 
     if (
-        player.skillTimers.ultraGun > 0
+        player.skillTimers.ultra > 0
     ) {
 
-        active.push({
-            icon: "👑",
-            name: "ULTRA"
-        });
+        active.push(
+            ["👑", "ULTRA"]
+        );
 
     }
 
@@ -955,10 +901,9 @@ function updateSkillUI() {
         player.damage > 1
     ) {
 
-        active.push({
-            icon: "💥",
-            name: "DAMAGE"
-        });
+        active.push(
+            ["💥", "DAMAGE"]
+        );
 
     }
 
@@ -976,11 +921,11 @@ function updateSkillUI() {
 
             element.innerHTML = `
                 <span class="active-skill-icon">
-                    ${skill.icon}
+                    ${skill[0]}
                 </span>
 
                 <span class="active-skill-name">
-                    ${skill.name}
+                    ${skill[1]}
                 </span>
             `;
 
@@ -1008,25 +953,35 @@ function startGame(level) {
 
     score = 0;
 
-    wave = 1;
-
     combo = 1;
 
+    round = 1;
+
+    wave = 1;
+
+    phase = "battle";
+
+
     enemies = [];
-
     bullets = [];
-
     particles = [];
-
-    skills = [];
-
+    missiles = [];
     lightning = [];
+    skills = [];
+    enemyBullets = [];
 
-    spawnTimer = 0;
+
+    boss = null;
 
 
     player.health =
         player.maxHealth;
+
+    player.x =
+        canvas.width / 2;
+
+    player.y =
+        canvas.height / 2;
 
     player.speed =
         player.baseSpeed;
@@ -1040,18 +995,13 @@ function startGame(level) {
 
     Object.keys(
         player.skillTimers
-    ).forEach(key => {
+    ).forEach(
+        key => {
 
-        player.skillTimers[key] = 0;
+            player.skillTimers[key] = 0;
 
-    });
-
-
-    player.x =
-        canvas.width / 2;
-
-    player.y =
-        canvas.height / 2;
+        }
+    );
 
 
     menu.classList.add(
@@ -1064,8 +1014,13 @@ function startGame(level) {
 
 
     updateUI();
-
     updateSkillUI();
+
+
+    showRoundMessage(
+        `ROUND ${round}`,
+        1200
+    );
 
 
     lastTime =
@@ -1080,242 +1035,874 @@ function startGame(level) {
 
 
 /* =========================================================
-   DIFFICULTY BUTTONS
+   ROUND MESSAGE
 ========================================================= */
 
-document
-    .querySelectorAll(".difficulty")
-    .forEach(button => {
+function showRoundMessage(
+    text,
+    duration
+) {
 
-        button.addEventListener(
-            "click",
-            () => {
-
-                startGame(
-                    button.dataset.level
-                );
-
-            }
+    const element =
+        document.createElement(
+            "div"
         );
 
-    });
+    element.className =
+        "round-message";
+
+    element.textContent =
+        text;
+
+
+    document.querySelector(
+        ".game-box"
+    ).appendChild(element);
+
+
+    setTimeout(
+        () => {
+
+            element.remove();
+
+        },
+        duration
+    );
+
+}
 
 
 /* =========================================================
-   RESTART
+   BOSS WARNING
 ========================================================= */
 
-restartButton.addEventListener(
-    "click",
-    () => {
+function startBossWarning() {
 
-        menu.classList.remove(
-            "hidden"
+    phase =
+        "boss-warning";
+
+
+    const warning =
+        document.createElement(
+            "div"
         );
 
-        gameOver.classList.add(
-            "hidden"
+    warning.className =
+        "boss-warning";
+
+    warning.textContent =
+        "⚠ BOSS INCOMING ⚠";
+
+
+    document.querySelector(
+        ".game-box"
+    ).appendChild(warning);
+
+
+    setTimeout(
+        () => {
+
+            warning.remove();
+
+            spawnBoss();
+
+        },
+        2000
+    );
+
+}
+
+
+/* =========================================================
+   SPAWN BOSS
+========================================================= */
+
+function spawnBoss() {
+
+    phase =
+        "boss";
+
+
+    const bossIndex =
+        Math.min(
+            round - 1,
+            BOSS_NAMES.length - 1
+        );
+
+
+    const hp =
+        500 +
+        round * 300;
+
+
+    boss = {
+
+        x:
+            canvas.width / 2,
+
+        y:
+            -100,
+
+        size:
+            55 +
+            round * 2,
+
+        health:
+            hp,
+
+        maxHealth:
+            hp,
+
+        speed:
+            0.6 +
+            round * 0.05,
+
+        phase: 1,
+
+        attackTimer: 0,
+
+        spawnTimer: 0,
+
+        name:
+            BOSS_NAMES[bossIndex]
+
+    };
+
+
+    createBossBar();
+
+
+    showRoundMessage(
+        boss.name,
+        1800
+    );
+
+}
+
+
+/* =========================================================
+   BOSS HEALTH BAR
+========================================================= */
+
+function createBossBar() {
+
+    const old =
+        document.getElementById(
+            "bossBar"
+        );
+
+    if (old)
+        old.remove();
+
+
+    const bar =
+        document.createElement(
+            "div"
+        );
+
+    bar.id =
+        "bossBar";
+
+    bar.className =
+        "boss-bar";
+
+    bar.innerHTML = `
+
+        <div class="boss-name">
+            ${boss.name}
+        </div>
+
+        <div class="boss-health-bg">
+            <div
+                id="bossHealth"
+                class="boss-health"
+            ></div>
+        </div>
+
+    `;
+
+
+    document.querySelector(
+        ".game-box"
+    ).appendChild(bar);
+
+}
+
+
+/* =========================================================
+   UPDATE BOSS
+========================================================= */
+
+function updateBoss(delta) {
+
+    if (!boss)
+        return;
+
+
+    /* Move towards player */
+
+    const dx =
+        player.x -
+        boss.x;
+
+    const dy =
+        player.y -
+        boss.y;
+
+
+    const distance =
+        Math.hypot(
+            dx,
+            dy
+        );
+
+
+    if (
+        distance > 180
+    ) {
+
+        boss.x +=
+            (dx / distance) *
+            boss.speed *
+            delta;
+
+        boss.y +=
+            (dy / distance) *
+            boss.speed *
+            delta;
+
+    }
+
+
+    /* ==========================
+       PHASE 2
+    ========================== */
+
+    if (
+        boss.health <=
+        boss.maxHealth * 0.5 &&
+        boss.phase === 1
+    ) {
+
+        boss.phase = 2;
+
+        boss.speed *= 1.7;
+
+        showRoundMessage(
+            "⚠ BOSS ENRAGED ⚠",
+            1200
+        );
+
+        createExplosion(
+            boss.x,
+            boss.y,
+            "#ff0055",
+            50
         );
 
     }
-);
+
+
+    /* ==========================
+       BOSS ATTACK
+    ========================== */
+
+    boss.attackTimer -=
+        16.67 * delta;
+
+
+    if (
+        boss.attackTimer <= 0
+    ) {
+
+        bossAttack();
+
+        boss.attackTimer =
+            boss.phase === 1
+                ? 1100
+                : 600;
+
+    }
+
+
+    /* ==========================
+       SPAWN MINIONS
+    ========================== */
+
+    boss.spawnTimer -=
+        16.67 * delta;
+
+
+    if (
+        boss.spawnTimer <= 0
+    ) {
+
+        spawnEnemy();
+
+        spawnEnemy();
+
+
+        boss.spawnTimer =
+            boss.phase === 1
+                ? 3500
+                : 1800;
+
+    }
+
+
+    /* ==========================
+       CONTACT
+    ========================== */
+
+    if (
+        distance <
+        boss.size +
+        player.size
+    ) {
+
+        damagePlayer(
+            20 +
+            round * 2
+        );
+
+    }
+
+
+    updateBossHealth();
+
+}
 
 
 /* =========================================================
-   KEYBOARD
+   BOSS ATTACK
 ========================================================= */
 
-document.addEventListener(
-    "keydown",
-    event => {
+function bossAttack() {
 
-        keys[
-            event.key.toLowerCase()
-        ] = true;
+    const angle =
+        Math.atan2(
+            player.y -
+            boss.y,
+
+            player.x -
+            boss.x
+        );
+
+
+    const bulletCount =
+        boss.phase === 1
+            ? 3
+            : 7;
+
+
+    for (
+        let i = 0;
+        i < bulletCount;
+        i++
+    ) {
+
+        let spread = 0;
 
 
         if (
-            event.code === "Space"
+            bulletCount > 1
         ) {
 
-            event.preventDefault();
-
-            attack();
+            spread =
+                (
+                    i -
+                    (bulletCount - 1) / 2
+                ) *
+                0.12;
 
         }
 
+
+        enemyBullets.push({
+
+            x: boss.x,
+
+            y: boss.y,
+
+            vx:
+                Math.cos(
+                    angle + spread
+                ) * 4,
+
+            vy:
+                Math.sin(
+                    angle + spread
+                ) * 4,
+
+            life: 2500
+
+        });
+
     }
-);
 
 
-document.addEventListener(
-    "keyup",
-    event => {
+    createExplosion(
+        boss.x,
+        boss.y,
+        "#ff0055",
+        10
+    );
 
-        keys[
-            event.key.toLowerCase()
-        ] = false;
-
-    }
-);
+}
 
 
 /* =========================================================
-   MOBILE CONTROLS
+   UPDATE BOSS BULLETS
 ========================================================= */
 
-document
-    .querySelectorAll(".move-button")
-    .forEach(button => {
+function updateEnemyBullets(delta) {
 
-        const key =
-            button.dataset.key
-                .toLowerCase();
+    enemyBullets.forEach(
+        (bullet, index) => {
+
+            bullet.x +=
+                bullet.vx *
+                delta;
+
+            bullet.y +=
+                bullet.vy *
+                delta;
+
+            bullet.life -=
+                16.67 * delta;
 
 
-        button.addEventListener(
-            "pointerdown",
-            event => {
+            const distance =
+                Math.hypot(
+                    bullet.x -
+                    player.x,
 
-                event.preventDefault();
+                    bullet.y -
+                    player.y
+                );
 
-                keys[key] = true;
+
+            if (
+                distance <
+                15
+            ) {
+
+                damagePlayer(
+                    8 +
+                    round
+                );
+
+                bullet.life = 0;
 
             }
+
+
+            if (
+                bullet.life <= 0
+            ) {
+
+                enemyBullets.splice(
+                    index,
+                    1
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   BOSS HIT
+========================================================= */
+
+function hitBoss(
+    damage
+) {
+
+    if (
+        phase !== "boss" ||
+        !boss
+    ) {
+
+        return;
+
+    }
+
+
+    boss.health -=
+        damage;
+
+
+    createExplosion(
+        boss.x,
+        boss.y,
+        "#ff00ff",
+        5
+    );
+
+
+    if (
+        boss.health <= 0
+    ) {
+
+        killBoss();
+
+    }
+
+}
+
+
+/* =========================================================
+   KILL BOSS
+========================================================= */
+
+function killBoss() {
+
+    phase =
+        "reward";
+
+
+    score +=
+        2000 +
+        round * 500;
+
+
+    createExplosion(
+        boss.x,
+        boss.y,
+        "#ff00ff",
+        100
+    );
+
+
+    /* BOSS GUARANTEED DROP */
+
+    dropSkill(
+        boss.x,
+        boss.y,
+        true
+    );
+
+
+    const bossBar =
+        document.getElementById(
+            "bossBar"
+        );
+
+    if (bossBar)
+        bossBar.remove();
+
+
+    boss = null;
+
+
+    updateUI();
+
+
+    showRoundMessage(
+        `ROUND ${round} CLEAR`,
+        1800
+    );
+
+
+    setTimeout(
+        () => {
+
+            if (
+                round >= maxRounds
+            ) {
+
+                completeGame();
+
+                return;
+
+            }
+
+
+            round++;
+
+            wave = 1;
+
+            phase = "battle";
+
+            enemies = [];
+
+            enemyBullets = [];
+
+            showRoundMessage(
+                `ROUND ${round}`,
+                1200
+            );
+
+        },
+        2200
+    );
+
+}
+
+
+/* =========================================================
+   BOSS HEALTH
+========================================================= */
+
+function updateBossHealth() {
+
+    const bar =
+        document.getElementById(
+            "bossHealth"
+        );
+
+    if (!bar || !boss)
+        return;
+
+
+    const percentage =
+        Math.max(
+            0,
+            boss.health /
+            boss.maxHealth *
+            100
         );
 
 
-        button.addEventListener(
-            "pointerup",
-            event => {
+    bar.style.width =
+        percentage + "%";
 
-                event.preventDefault();
+}
 
-                keys[key] = false;
 
-            }
+/* =========================================================
+   SPAWN ENEMY
+========================================================= */
+
+function spawnEnemy() {
+
+    const limit =
+        difficulty.enemyCount +
+        round * 2;
+
+
+    if (
+        enemies.length >=
+        limit
+    ) {
+
+        return;
+
+    }
+
+
+    const side =
+        Math.floor(
+            Math.random() * 4
         );
 
 
-        button.addEventListener(
-            "pointerleave",
-            () => {
+    let x;
+    let y;
 
-                keys[key] = false;
 
-            }
-        );
+    if (
+        side === 0
+    ) {
+
+        x = -30;
+
+        y =
+            Math.random() *
+            canvas.height;
+
+    }
+
+    else if (
+        side === 1
+    ) {
+
+        x =
+            canvas.width + 30;
+
+        y =
+            Math.random() *
+            canvas.height;
+
+    }
+
+    else if (
+        side === 2
+    ) {
+
+        x =
+            Math.random() *
+            canvas.width;
+
+        y = -30;
+
+    }
+
+    else {
+
+        x =
+            Math.random() *
+            canvas.width;
+
+        y =
+            canvas.height + 30;
+
+    }
+
+
+    const elite =
+        Math.random() <
+        0.08;
+
+
+    enemies.push({
+
+        x,
+
+        y,
+
+        size:
+            elite ? 30 : 21,
+
+        speed:
+            difficulty.enemySpeed +
+            round * 0.04 +
+            (elite ? 0.4 : 0),
+
+        health:
+            difficulty.enemyHP +
+            round +
+            (elite ? round * 2 : 0),
+
+        maxHealth:
+            difficulty.enemyHP +
+            round +
+            (elite ? round * 2 : 0),
+
+        damage:
+            difficulty.enemyDamage +
+            round +
+            (elite ? 8 : 0),
+
+        elite,
+
+        slow: 1
 
     });
 
-
-attackButton.addEventListener(
-    "pointerdown",
-    event => {
-
-        event.preventDefault();
-
-        attack();
-
-    }
-);
+}
 
 
 /* =========================================================
-   MOVE PLAYER
+   UPDATE ENEMIES
 ========================================================= */
 
-function movePlayer() {
+function updateEnemies(delta) {
 
-    let dx = 0;
-    let dy = 0;
+    enemies.forEach(
+        enemy => {
 
+            const dx =
+                player.x -
+                enemy.x;
+
+            const dy =
+                player.y -
+                enemy.y;
+
+
+            const distance =
+                Math.hypot(
+                    dx,
+                    dy
+                );
+
+
+            if (
+                distance > 0
+            ) {
+
+                enemy.x +=
+                    dx /
+                    distance *
+                    enemy.speed *
+                    enemy.slow *
+                    delta;
+
+                enemy.y +=
+                    dy /
+                    distance *
+                    enemy.speed *
+                    enemy.slow *
+                    delta;
+
+            }
+
+
+            if (
+                distance <
+                enemy.size +
+                player.size / 2
+            ) {
+
+                damagePlayer(
+                    enemy.damage
+                );
+
+            }
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   DAMAGE PLAYER
+========================================================= */
+
+function damagePlayer(
+    amount
+) {
 
     if (
-        keys["w"] ||
-        keys["arrowup"]
+        player.invincible > 0
     ) {
 
-        dy--;
+        return;
 
     }
 
 
-    if (
-        keys["s"] ||
-        keys["arrowdown"]
-    ) {
+    player.health -=
+        amount;
 
-        dy++;
-
-    }
+    player.invincible =
+        800;
 
 
-    if (
-        keys["a"] ||
-        keys["arrowleft"]
-    ) {
+    createExplosion(
+        player.x,
+        player.y,
+        "#ff0055",
+        20
+    );
 
-        dx--;
 
-    }
+    updateUI();
 
 
     if (
-        keys["d"] ||
-        keys["arrowright"]
+        player.health <= 0
     ) {
 
-        dx++;
+        endGame();
 
     }
-
-
-    if (
-        dx !== 0 ||
-        dy !== 0
-    ) {
-
-        const length =
-            Math.hypot(dx, dy);
-
-
-        dx /= length;
-
-        dy /= length;
-
-    }
-
-
-    player.x +=
-        dx * player.speed;
-
-    player.y +=
-        dy * player.speed;
-
-
-    const half =
-        player.size / 2;
-
-
-    player.x =
-        Math.max(
-            half,
-            Math.min(
-                canvas.width - half,
-                player.x
-            )
-        );
-
-
-    player.y =
-        Math.max(
-            half,
-            Math.min(
-                canvas.height - half,
-                player.y
-            )
-        );
 
 }
 
@@ -1326,17 +1913,17 @@ function movePlayer() {
 
 function attack() {
 
-    if (!gameRunning)
+    if (
+        !gameRunning
+    )
         return;
 
 
     if (
-        player.attackCooldown > 0
-    ) {
-
+        player.attackCooldown >
+        0
+    )
         return;
-
-    }
 
 
     let cooldown =
@@ -1344,19 +1931,21 @@ function attack() {
 
 
     if (
-        player.skillTimers.rapidFire > 0
+        player.skillTimers.rapidFire >
+        0
     ) {
 
-        cooldown *= 0.45;
+        cooldown *= .45;
 
     }
 
 
     if (
-        player.skillTimers.ultraGun > 0
+        player.skillTimers.ultra >
+        0
     ) {
 
-        cooldown *= 0.2;
+        cooldown *= .18;
 
     }
 
@@ -1365,16 +1954,16 @@ function attack() {
         cooldown;
 
 
-    let nearest = null;
+    let target = null;
 
-    let nearestDistance =
+    let nearest =
         Infinity;
 
 
     enemies.forEach(
         enemy => {
 
-            const distance =
+            const d =
                 Math.hypot(
                     enemy.x -
                     player.x,
@@ -1385,15 +1974,12 @@ function attack() {
 
 
             if (
-                distance <
-                nearestDistance
+                d < nearest
             ) {
 
-                nearest =
-                    enemy;
+                nearest = d;
 
-                nearestDistance =
-                    distance;
+                target = enemy;
 
             }
 
@@ -1402,19 +1988,17 @@ function attack() {
 
 
     if (
-        !nearest
+        !target &&
+        boss
     ) {
 
-        createExplosion(
-            player.x,
-            player.y,
-            "#00ffff",
-            8
-        );
-
-        return;
+        target = boss;
 
     }
+
+
+    if (!target)
+        return;
 
 
     let count =
@@ -1422,7 +2006,7 @@ function attack() {
 
 
     if (
-        player.skillTimers.tripleShot >
+        player.skillTimers.triple >
         0
     ) {
 
@@ -1431,7 +2015,7 @@ function attack() {
     }
 
     else if (
-        player.skillTimers.doubleShot >
+        player.skillTimers.double >
         0
     ) {
 
@@ -1452,15 +2036,15 @@ function attack() {
                 : (
                     i -
                     (count - 1) / 2
-                ) * 0.18;
+                ) * .18;
 
 
         const angle =
             Math.atan2(
-                nearest.y -
+                target.y -
                 player.y,
 
-                nearest.x -
+                target.x -
                 player.x
             ) + spread;
 
@@ -1495,220 +2079,6 @@ function attack() {
 
 
 /* =========================================================
-   SPAWN ENEMY
-========================================================= */
-
-function spawnEnemy() {
-
-    if (
-        enemies.length >=
-        difficulty.enemyCount +
-        wave * 2
-    ) {
-
-        return;
-
-    }
-
-
-    const side =
-        Math.floor(
-            Math.random() * 4
-        );
-
-
-    let x;
-    let y;
-
-
-    if (side === 0) {
-
-        x = -30;
-
-        y =
-            Math.random() *
-            canvas.height;
-
-    }
-
-    else if (side === 1) {
-
-        x =
-            canvas.width + 30;
-
-        y =
-            Math.random() *
-            canvas.height;
-
-    }
-
-    else if (side === 2) {
-
-        x =
-            Math.random() *
-            canvas.width;
-
-        y = -30;
-
-    }
-
-    else {
-
-        x =
-            Math.random() *
-            canvas.width;
-
-        y =
-            canvas.height + 30;
-
-    }
-
-
-    enemies.push({
-
-        x,
-
-        y,
-
-        size: 22,
-
-        speed:
-            difficulty.enemySpeed +
-            wave * 0.04,
-
-        health:
-            difficulty.enemyHealth,
-
-        maxHealth:
-            difficulty.enemyHealth,
-
-        damage:
-            difficulty.damage,
-
-        slow: 1
-
-    });
-
-}
-
-
-/* =========================================================
-   UPDATE ENEMIES
-========================================================= */
-
-function updateEnemies(delta) {
-
-    enemies.forEach(
-        enemy => {
-
-            const dx =
-                player.x -
-                enemy.x;
-
-            const dy =
-                player.y -
-                enemy.y;
-
-
-            const distance =
-                Math.hypot(
-                    dx,
-                    dy
-                );
-
-
-            let speed =
-                enemy.speed;
-
-
-            if (
-                enemy.slow < 1
-            ) {
-
-                speed *=
-                    enemy.slow;
-
-            }
-
-
-            if (
-                distance > 0
-            ) {
-
-                enemy.x +=
-                    (dx / distance) *
-                    speed *
-                    delta;
-
-                enemy.y +=
-                    (dy / distance) *
-                    speed *
-                    delta;
-
-            }
-
-
-            if (
-                distance <
-                enemy.size +
-                player.size / 2
-            ) {
-
-                damagePlayer(
-                    enemy.damage
-                );
-
-            }
-
-        }
-    );
-
-}
-
-
-/* =========================================================
-   DAMAGE PLAYER
-========================================================= */
-
-function damagePlayer(amount) {
-
-    if (
-        player.invincible > 0
-    ) {
-
-        return;
-
-    }
-
-
-    player.health -= amount;
-
-    player.invincible = 800;
-
-
-    createExplosion(
-        player.x,
-        player.y,
-        "#ff0055",
-        15
-    );
-
-
-    updateUI();
-
-
-    if (
-        player.health <= 0
-    ) {
-
-        endGame();
-
-    }
-
-}
-
-
-/* =========================================================
    UPDATE BULLETS
 ========================================================= */
 
@@ -1731,13 +2101,7 @@ function updateBullets(delta) {
 
 
             if (
-                bullet.life <= 0 ||
-                bullet.x < -50 ||
-                bullet.x >
-                    canvas.width + 50 ||
-                bullet.y < -50 ||
-                bullet.y >
-                    canvas.height + 50
+                bullet.life <= 0
             ) {
 
                 bullets.splice(
@@ -1750,10 +2114,91 @@ function updateBullets(delta) {
             }
 
 
+            /* BOSS */
+
+            if (
+                boss
+            ) {
+
+                const d =
+                    Math.hypot(
+                        bullet.x -
+                        boss.x,
+
+                        bullet.y -
+                        boss.y
+                    );
+
+
+                if (
+                    d <
+                    boss.size
+                ) {
+
+                    let damage =
+                        bullet.damage;
+
+
+                    if (
+                        bullet.elemental ===
+                        "thunder"
+                    ) {
+
+                        damage *= 2.5;
+
+                        createLightning(
+                            boss.x,
+                            boss.y
+                        );
+
+                    }
+
+
+                    if (
+                        bullet.elemental ===
+                        "fire"
+                    ) {
+
+                        damage *= 1.8;
+
+                        createExplosion(
+                            boss.x,
+                            boss.y,
+                            "#ff4400",
+                            10
+                        );
+
+                    }
+
+
+                    if (
+                        bullet.elemental ===
+                        "ice"
+                    ) {
+
+                        damage *= 1.3;
+
+                    }
+
+
+                    hitBoss(
+                        damage
+                    );
+
+
+                    bullet.life = 0;
+
+                }
+
+            }
+
+
+            /* NORMAL ENEMIES */
+
             enemies.forEach(
                 enemy => {
 
-                    const distance =
+                    const d =
                         Math.hypot(
                             bullet.x -
                             enemy.x,
@@ -1764,7 +2209,7 @@ function updateBullets(delta) {
 
 
                     if (
-                        distance <
+                        d <
                         enemy.size + 6
                     ) {
 
@@ -1772,7 +2217,6 @@ function updateBullets(delta) {
                             enemy,
                             bullet
                         );
-
 
                         bullet.life = 0;
 
@@ -1783,13 +2227,6 @@ function updateBullets(delta) {
 
         }
     );
-
-
-    bullets =
-        bullets.filter(
-            bullet =>
-                bullet.life > 0
-        );
 
 }
 
@@ -1806,8 +2243,6 @@ function hitEnemy(
     let damage =
         bullet.damage;
 
-
-    /* ELEMENTAL DAMAGE */
 
     if (
         bullet.elemental ===
@@ -1848,34 +2283,13 @@ function hitEnemy(
 
         damage *= 1.2;
 
-        enemy.slow = 0.45;
+        enemy.slow = .45;
 
     }
 
 
-    enemy.health -= damage;
-
-
-    createExplosion(
-        enemy.x,
-        enemy.y,
-
-        bullet.elemental ===
-            "ice"
-            ? "#66ddff"
-
-            : bullet.elemental ===
-              "fire"
-                ? "#ff4400"
-
-                : bullet.elemental ===
-                  "thunder"
-                    ? "#9d7cff"
-
-                    : "#00ffff",
-
-        8
-    );
+    enemy.health -=
+        damage;
 
 
     if (
@@ -1895,19 +2309,55 @@ function hitEnemy(
    KILL ENEMY
 ========================================================= */
 
-function killEnemy(enemy) {
+function killEnemy(
+    enemy
+) {
 
     const index =
         enemies.indexOf(enemy);
 
 
     if (
-        index !== -1
+        index === -1
+    )
+        return;
+
+
+    enemies.splice(
+        index,
+        1
+    );
+
+
+    score +=
+        enemy.elite
+            ? 250
+            : 100;
+
+
+    /*
+       NORMAL:
+       3%
+
+       ELITE:
+       8%
+    */
+
+    const dropChance =
+        enemy.elite
+            ? .08
+            : .03;
+
+
+    if (
+        Math.random() <
+        dropChance
     ) {
 
-        enemies.splice(
-            index,
-            1
+        dropSkill(
+            enemy.x,
+            enemy.y,
+            true
         );
 
     }
@@ -1918,7 +2368,8 @@ function killEnemy(enemy) {
 
 
     if (
-        now - lastKillTime <
+        now -
+        lastKillTime <
         2500
     ) {
 
@@ -1933,47 +2384,22 @@ function killEnemy(enemy) {
     }
 
 
-    lastKillTime = now;
-
-
-    score +=
-        100 * combo;
+    lastKillTime =
+        now;
 
 
     createExplosion(
         enemy.x,
         enemy.y,
-        "#ff00ff",
-        22
+
+        enemy.elite
+            ? "#ffff00"
+            : "#ff0055",
+
+        enemy.elite
+            ? 25
+            : 12
     );
-
-
-    /* ==========================
-       SKILL DROP
-    ========================== */
-
-    dropSkill(
-        enemy.x,
-        enemy.y
-    );
-
-
-    if (
-        score >=
-        wave * 1000
-    ) {
-
-        wave++;
-
-
-        createExplosion(
-            player.x,
-            player.y,
-            "#00ffff",
-            35
-        );
-
-    }
 
 
     updateUI();
@@ -1982,73 +2408,34 @@ function killEnemy(enemy) {
 
 
 /* =========================================================
-   MISSILE
-========================================================= */
-
-function launchMissile() {
-
-    if (
-        enemies.length === 0
-    ) {
-
-        return;
-
-    }
-
-
-    const targets =
-        [...enemies]
-            .sort(
-                (a, b) =>
-                    Math.hypot(
-                        a.x -
-                        player.x,
-
-                        a.y -
-                        player.y
-                    )
-
-                    -
-
-                    Math.hypot(
-                        b.x -
-                        player.x,
-
-                        b.y -
-                        player.y
-                    )
-            )
-            .slice(0, 3);
-
-
-    targets.forEach(
-        target => {
-
-            missiles.push({
-
-                x: player.x,
-
-                y: player.y,
-
-                target,
-
-                speed: 6,
-
-                damage: 10
-
-            });
-
-        }
-    );
-
-}
-
-
-/* =========================================================
    MISSILES
 ========================================================= */
 
-let missiles = [];
+function launchMissiles() {
+
+    enemies
+        .slice(0, 5)
+        .forEach(
+            target => {
+
+                missiles.push({
+
+                    x: player.x,
+
+                    y: player.y,
+
+                    target,
+
+                    speed: 7,
+
+                    damage: 15
+
+                });
+
+            }
+        );
+
+}
 
 
 function updateMissiles(delta) {
@@ -2104,7 +2491,7 @@ function updateMissiles(delta) {
                     target.x,
                     target.y,
                     "#ff5500",
-                    25
+                    20
                 );
 
 
@@ -2130,12 +2517,14 @@ function updateMissiles(delta) {
 
 
             missile.x +=
-                (dx / distance) *
+                dx /
+                distance *
                 missile.speed *
                 delta;
 
             missile.y +=
-                (dy / distance) *
+                dy /
+                distance *
                 missile.speed *
                 delta;
 
@@ -2170,8 +2559,7 @@ function createExplosion(
 
         const speed =
             Math.random() *
-            4 +
-            1;
+            5 + 1;
 
 
         particles.push({
@@ -2195,6 +2583,36 @@ function createExplosion(
         });
 
     }
+
+}
+
+
+function updateParticles(delta) {
+
+    particles.forEach(
+        particle => {
+
+            particle.x +=
+                particle.vx *
+                delta;
+
+            particle.y +=
+                particle.vy *
+                delta;
+
+            particle.life -=
+                .025 *
+                delta;
+
+        }
+    );
+
+
+    particles =
+        particles.filter(
+            particle =>
+                particle.life > 0
+        );
 
 }
 
@@ -2242,41 +2660,7 @@ function updateLightning() {
 
 
 /* =========================================================
-   UPDATE PARTICLES
-========================================================= */
-
-function updateParticles(delta) {
-
-    particles.forEach(
-        particle => {
-
-            particle.x +=
-                particle.vx *
-                delta;
-
-            particle.y +=
-                particle.vy *
-                delta;
-
-            particle.life -=
-                0.025 *
-                delta;
-
-        }
-    );
-
-
-    particles =
-        particles.filter(
-            particle =>
-                particle.life > 0
-        );
-
-}
-
-
-/* =========================================================
-   SKILL TIMER
+   SKILLS TIMER
 ========================================================= */
 
 function updateSkills(delta) {
@@ -2292,7 +2676,8 @@ function updateSkills(delta) {
             ) {
 
                 player.skillTimers[key] -=
-                    16.67 * delta;
+                    16.67 *
+                    delta;
 
             }
 
@@ -2324,10 +2709,8 @@ function updateSkills(delta) {
 
 
     if (
-        player.skillTimers.doubleShot <=
-        0 &&
-        player.skillTimers.tripleShot <=
-        0
+        player.skillTimers.double <= 0 &&
+        player.skillTimers.triple <= 0
     ) {
 
         player.bulletCount = 1;
@@ -2338,13 +2721,12 @@ function updateSkills(delta) {
     updateSkillUI();
 
 
-    /* Remove old drops */
-
     skills.forEach(
         (skill, index) => {
 
             skill.life -=
-                16.67 * delta;
+                16.67 *
+                delta;
 
 
             if (
@@ -2373,7 +2755,7 @@ function updateSkills(delta) {
 function drawBackground() {
 
     ctx.fillStyle =
-        "#030612";
+        "#02040d";
 
     ctx.fillRect(
         0,
@@ -2383,21 +2765,17 @@ function drawBackground() {
     );
 
 
-    /* GRID */
-
     ctx.strokeStyle =
-        "rgba(0,255,255,0.08)";
-
-    ctx.lineWidth = 1;
+        "rgba(0,255,255,.08)";
 
 
-    const gridSize = 40;
+    const size = 40;
 
 
     for (
         let x = 0;
         x < canvas.width;
-        x += gridSize
+        x += size
     ) {
 
         ctx.beginPath();
@@ -2420,7 +2798,7 @@ function drawBackground() {
     for (
         let y = 0;
         y < canvas.height;
-        y += gridSize
+        y += size
     ) {
 
         ctx.beginPath();
@@ -2438,42 +2816,6 @@ function drawBackground() {
         ctx.stroke();
 
     }
-
-
-    /* CENTER GLOW */
-
-    const gradient =
-        ctx.createRadialGradient(
-            canvas.width / 2,
-            canvas.height / 2,
-            20,
-
-            canvas.width / 2,
-            canvas.height / 2,
-            350
-        );
-
-
-    gradient.addColorStop(
-        0,
-        "rgba(0,255,255,0.08)"
-    );
-
-    gradient.addColorStop(
-        1,
-        "rgba(0,0,0,0)"
-    );
-
-
-    ctx.fillStyle =
-        gradient;
-
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
-    );
 
 }
 
@@ -2526,26 +2868,6 @@ function drawPlayer() {
     ctx.fill();
 
 
-    ctx.fillStyle =
-        "#ff00ff";
-
-    ctx.shadowColor =
-        "#ff00ff";
-
-
-    ctx.beginPath();
-
-    ctx.arc(
-        player.x,
-        player.y,
-        5,
-        0,
-        Math.PI * 2
-    );
-
-    ctx.fill();
-
-
     ctx.restore();
 
 }
@@ -2566,11 +2888,15 @@ function drawEnemies() {
             ctx.shadowBlur = 20;
 
             ctx.shadowColor =
-                "#ff0055";
+                enemy.elite
+                    ? "#ffff00"
+                    : "#ff0055";
 
 
             ctx.fillStyle =
-                "#ff0055";
+                enemy.elite
+                    ? "#ffff00"
+                    : "#ff0055";
 
 
             ctx.beginPath();
@@ -2589,9 +2915,6 @@ function drawEnemies() {
             ctx.fillStyle =
                 "#ffffff";
 
-            ctx.shadowColor =
-                "#ffffff";
-
 
             ctx.beginPath();
 
@@ -2606,33 +2929,47 @@ function drawEnemies() {
             ctx.fill();
 
 
-            /* HEALTH BAR */
-
-            const width = 35;
-
-            const hp =
-                enemy.health /
-                enemy.maxHealth;
+            const width = 36;
 
 
             ctx.fillStyle =
-                "rgba(255,255,255,0.2)";
+                "rgba(255,255,255,.2)";
+
 
             ctx.fillRect(
-                enemy.x - width / 2,
-                enemy.y - 30,
+                enemy.x -
+                width / 2,
+
+                enemy.y -
+                enemy.size -
+                10,
+
                 width,
                 4
             );
 
 
             ctx.fillStyle =
-                "#ff0055";
+                enemy.elite
+                    ? "#ffff00"
+                    : "#ff0055";
+
 
             ctx.fillRect(
-                enemy.x - width / 2,
-                enemy.y - 30,
-                width * hp,
+                enemy.x -
+                width / 2,
+
+                enemy.y -
+                enemy.size -
+                10,
+
+                width *
+                Math.max(
+                    0,
+                    enemy.health /
+                    enemy.maxHealth
+                ),
+
                 4
             );
 
@@ -2641,6 +2978,95 @@ function drawEnemies() {
 
         }
     );
+
+}
+
+
+/* =========================================================
+   DRAW BOSS
+========================================================= */
+
+function drawBoss() {
+
+    if (!boss)
+        return;
+
+
+    ctx.save();
+
+
+    const color =
+        boss.phase === 2
+            ? "#ff0055"
+            : "#ff00ff";
+
+
+    ctx.shadowBlur = 40;
+
+    ctx.shadowColor =
+        color;
+
+    ctx.fillStyle =
+        color;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        boss.x,
+        boss.y,
+        boss.size,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    /* CORE */
+
+    ctx.fillStyle =
+        "#00ffff";
+
+    ctx.shadowColor =
+        "#00ffff";
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        boss.x,
+        boss.y,
+        14,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.fill();
+
+
+    /* RING */
+
+    ctx.strokeStyle =
+        "#ffffff";
+
+    ctx.lineWidth = 3;
+
+
+    ctx.beginPath();
+
+    ctx.arc(
+        boss.x,
+        boss.y,
+        boss.size + 10,
+        0,
+        Math.PI * 2
+    );
+
+    ctx.stroke();
+
+
+    ctx.restore();
 
 }
 
@@ -2664,40 +3090,30 @@ function drawBullets() {
             if (
                 bullet.elemental ===
                 "fire"
-            ) {
+            )
+                color = "#ff4400";
 
-                color =
-                    "#ff4400";
 
-            }
-
-            else if (
+            if (
                 bullet.elemental ===
                 "ice"
-            ) {
+            )
+                color = "#66ddff";
 
-                color =
-                    "#66ddff";
 
-            }
-
-            else if (
+            if (
                 bullet.elemental ===
                 "thunder"
-            ) {
+            )
+                color = "#9d7cff";
 
-                color =
-                    "#9d7cff";
 
-            }
-
+            ctx.fillStyle =
+                color;
 
             ctx.shadowBlur = 20;
 
             ctx.shadowColor =
-                color;
-
-            ctx.fillStyle =
                 color;
 
 
@@ -2707,6 +3123,48 @@ function drawBullets() {
                 bullet.x,
                 bullet.y,
                 5,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.fill();
+
+
+            ctx.restore();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   DRAW ENEMY BULLETS
+========================================================= */
+
+function drawEnemyBullets() {
+
+    enemyBullets.forEach(
+        bullet => {
+
+            ctx.save();
+
+
+            ctx.fillStyle =
+                "#ff0055";
+
+            ctx.shadowBlur = 20;
+
+            ctx.shadowColor =
+                "#ff0055";
+
+
+            ctx.beginPath();
+
+            ctx.arc(
+                bullet.x,
+                bullet.y,
+                6,
                 0,
                 Math.PI * 2
             );
@@ -2734,13 +3192,12 @@ function drawMissiles() {
             ctx.save();
 
 
+            ctx.fillStyle =
+                "#ff5500";
+
             ctx.shadowBlur = 20;
 
             ctx.shadowColor =
-                "#ff5500";
-
-
-            ctx.fillStyle =
                 "#ff5500";
 
 
@@ -2755,18 +3212,6 @@ function drawMissiles() {
             );
 
             ctx.fill();
-
-
-            ctx.fillStyle =
-                "#ffff00";
-
-
-            ctx.fillRect(
-                missile.x - 3,
-                missile.y + 5,
-                6,
-                12
-            );
 
 
             ctx.restore();
@@ -2794,7 +3239,7 @@ function drawLightning() {
 
             ctx.lineWidth = 4;
 
-            ctx.shadowBlur = 25;
+            ctx.shadowBlur = 20;
 
             ctx.shadowColor =
                 "#9d7cff";
@@ -2808,18 +3253,18 @@ function drawLightning() {
             );
 
             ctx.lineTo(
-                bolt.x - 12,
+                bolt.x - 15,
                 bolt.y - 20
             );
 
             ctx.lineTo(
                 bolt.x + 10,
-                bolt.y - 5
+                bolt.y
             );
 
             ctx.lineTo(
-                bolt.x - 5,
-                bolt.y + 20
+                bolt.x - 10,
+                bolt.y + 30
             );
 
             ctx.lineTo(
@@ -2849,14 +3294,11 @@ function drawParticles() {
 
             ctx.save();
 
-
             ctx.globalAlpha =
                 particle.life;
 
-
             ctx.fillStyle =
                 particle.color;
-
 
             ctx.shadowBlur = 15;
 
@@ -2881,40 +3323,97 @@ function drawParticles() {
 
 
 /* =========================================================
-   UPDATE UI
+   ROUND PROGRESSION
+========================================================= */
+
+function updateRoundProgress() {
+
+    if (
+        phase !== "battle"
+    )
+        return;
+
+
+    /*
+       Mỗi round có 3 wave.
+    */
+
+    const target =
+        difficulty.enemyCount +
+        round * 2;
+
+
+    if (
+        enemies.length === 0 &&
+        spawnTimer > 1000
+    ) {
+
+        if (
+            wave < 3
+        ) {
+
+            wave++;
+
+            showRoundMessage(
+                `WAVE ${wave}`,
+                800
+            );
+
+        }
+
+        else {
+
+            startBossWarning();
+
+        }
+
+    }
+
+}
+
+
+/* =========================================================
+   UI
 ========================================================= */
 
 function updateUI() {
 
-    scoreElement.textContent =
-        score;
-
-    waveElement.textContent =
-        wave;
-
-    comboElement.textContent =
-        "x" + combo;
+    if (scoreElement)
+        scoreElement.textContent =
+            score;
 
 
-    healthText.textContent =
-        Math.max(
-            0,
-            Math.floor(
+    if (waveElement)
+        waveElement.textContent =
+            `R${round} / W${wave}`;
+
+
+    if (comboElement)
+        comboElement.textContent =
+            "x" + combo;
+
+
+    if (healthText)
+        healthText.textContent =
+            Math.max(
+                0,
+                Math.floor(
+                    player.health
+                )
+            );
+
+
+    if (healthBar)
+        healthBar.style.width =
+            Math.max(
+                0,
                 player.health
-            )
-        );
+            ) + "%";
 
 
-    healthBar.style.width =
-        Math.max(
-            0,
-            player.health
-        ) + "%";
-
-
-    levelText.textContent =
-        "LEVEL " +
-        wave;
+    if (levelText)
+        levelText.textContent =
+            `ROUND ${round}`;
 
 }
 
@@ -2928,11 +3427,14 @@ function endGame() {
     gameRunning = false;
 
 
-    finalScore.textContent =
-        score;
+    if (finalScore)
+        finalScore.textContent =
+            score;
 
-    finalWave.textContent =
-        wave;
+
+    if (finalWave)
+        finalWave.textContent =
+            `ROUND ${round}`;
 
 
     gameOver.classList.remove(
@@ -2943,7 +3445,288 @@ function endGame() {
 
 
 /* =========================================================
-   MAIN GAME LOOP
+   GAME COMPLETE
+========================================================= */
+
+function completeGame() {
+
+    phase =
+        "game-complete";
+
+    gameRunning = false;
+
+
+    showRoundMessage(
+        "🏆 GAME COMPLETE 🏆",
+        3000
+    );
+
+
+    setTimeout(
+        () => {
+
+            alert(
+                "🏆 CHÚC MỪNG! Bạn đã đánh bại FINAL OVERLORD!"
+            );
+
+        },
+        500
+    );
+
+}
+
+
+/* =========================================================
+   KEYBOARD
+========================================================= */
+
+document.addEventListener(
+    "keydown",
+    event => {
+
+        keys[
+            event.key.toLowerCase()
+        ] = true;
+
+
+        if (
+            event.code === "Space"
+        ) {
+
+            event.preventDefault();
+
+            attack();
+
+        }
+
+    }
+);
+
+
+document.addEventListener(
+    "keyup",
+    event => {
+
+        keys[
+            event.key.toLowerCase()
+        ] = false;
+
+    }
+);
+
+
+/* =========================================================
+   MOVEMENT
+========================================================= */
+
+function movePlayer() {
+
+    let dx = 0;
+    let dy = 0;
+
+
+    if (
+        keys["w"] ||
+        keys["arrowup"]
+    )
+        dy--;
+
+
+    if (
+        keys["s"] ||
+        keys["arrowdown"]
+    )
+        dy++;
+
+
+    if (
+        keys["a"] ||
+        keys["arrowleft"]
+    )
+        dx--;
+
+
+    if (
+        keys["d"] ||
+        keys["arrowright"]
+    )
+        dx++;
+
+
+    if (
+        dx !== 0 ||
+        dy !== 0
+    ) {
+
+        const length =
+            Math.hypot(
+                dx,
+                dy
+            );
+
+        dx /= length;
+        dy /= length;
+
+    }
+
+
+    player.x +=
+        dx *
+        player.speed;
+
+
+    player.y +=
+        dy *
+        player.speed;
+
+
+    const half =
+        player.size / 2;
+
+
+    player.x =
+        Math.max(
+            half,
+            Math.min(
+                canvas.width -
+                half,
+                player.x
+            )
+        );
+
+
+    player.y =
+        Math.max(
+            half,
+            Math.min(
+                canvas.height -
+                half,
+                player.y
+            )
+        );
+
+}
+
+
+/* =========================================================
+   MOBILE CONTROL
+========================================================= */
+
+document
+    .querySelectorAll(
+        ".move-button"
+    )
+    .forEach(
+        button => {
+
+            const key =
+                button.dataset.key
+                    .toLowerCase();
+
+
+            button.addEventListener(
+                "pointerdown",
+                event => {
+
+                    event.preventDefault();
+
+                    keys[key] = true;
+
+                }
+            );
+
+
+            button.addEventListener(
+                "pointerup",
+                () => {
+
+                    keys[key] = false;
+
+                }
+            );
+
+
+            button.addEventListener(
+                "pointerleave",
+                () => {
+
+                    keys[key] = false;
+
+                }
+            );
+
+        }
+    );
+
+
+if (attackButton) {
+
+    attackButton.addEventListener(
+        "pointerdown",
+        event => {
+
+            event.preventDefault();
+
+            attack();
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   DIFFICULTY BUTTON
+========================================================= */
+
+document
+    .querySelectorAll(
+        ".difficulty"
+    )
+    .forEach(
+        button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    startGame(
+                        button.dataset.level
+                    );
+
+                }
+            );
+
+        }
+    );
+
+
+/* =========================================================
+   RESTART
+========================================================= */
+
+if (restartButton) {
+
+    restartButton.addEventListener(
+        "click",
+        () => {
+
+            menu.classList.remove(
+                "hidden"
+            );
+
+            gameOver.classList.add(
+                "hidden"
+            );
+
+        }
+    );
+
+}
+
+
+/* =========================================================
+   MAIN LOOP
 ========================================================= */
 
 function gameLoop(time) {
@@ -2963,59 +3746,67 @@ function gameLoop(time) {
     lastTime = time;
 
 
-    /* COOLDOWNS */
+    /* cooldown */
 
     if (
-        player.attackCooldown >
-        0
+        player.attackCooldown > 0
     ) {
 
         player.attackCooldown -=
-            16.67 * delta;
+            16.67 *
+            delta;
 
     }
 
 
     if (
-        player.invincible >
-        0
+        player.invincible > 0
     ) {
 
         player.invincible -=
-            16.67 * delta;
+            16.67 *
+            delta;
 
     }
 
 
-    /* MOVEMENT */
+    /* movement */
 
     movePlayer();
 
 
-    /* SPAWN */
-
-    spawnTimer +=
-        16.67 * delta;
-
+    /* spawn */
 
     if (
-        spawnTimer >=
-        difficulty.spawnDelay /
-        Math.min(wave, 5)
+        phase === "battle"
     ) {
 
-        spawnEnemy();
+        spawnTimer +=
+            16.67 *
+            delta;
 
-        spawnTimer = 0;
+
+        if (
+            spawnTimer >
+            900
+        ) {
+
+            spawnEnemy();
+
+            spawnTimer = 0;
+
+        }
 
     }
 
 
-    /* UPDATE */
+    /* update */
 
     updateEnemies(delta);
 
     updateBullets(delta);
+
+    updateEnemyBullets(delta);
 
     updateMissiles(delta);
 
@@ -3028,7 +3819,19 @@ function gameLoop(time) {
     checkSkillPickup();
 
 
-    /* DRAW */
+    if (
+        phase === "boss"
+    ) {
+
+        updateBoss(delta);
+
+    }
+
+
+    updateRoundProgress();
+
+
+    /* draw */
 
     drawBackground();
 
@@ -3040,12 +3843,17 @@ function gameLoop(time) {
 
     drawMissiles();
 
+    drawEnemyBullets();
+
     drawEnemies();
+
+    drawBoss();
 
     drawPlayer();
 
 
-    /* LOOP */
+    updateUI();
+
 
     requestAnimationFrame(
         gameLoop
@@ -3055,9 +3863,7 @@ function gameLoop(time) {
 
 
 /* =========================================================
-   INITIALIZATION
+   INIT
 ========================================================= */
 
 updateUI();
-
-updateSkillUI();
